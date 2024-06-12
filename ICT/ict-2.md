@@ -1,14 +1,14 @@
 
 ## Simple Summary
-A standard interface for cross chain tokens on ICON network.
+A standard interface for native implementation and management of a token across multiple chains using ICON's [GMP](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-52.md).
 
 ## Abstract
-This draft ICTS describes a cross chain token standard interface to provide basic functionality to migrate tokens among different chains.
+This document describes the standard token interface required for interoperability across multiple chains connected via ICON's GMP. It enables cross chain transfers between native implementations of the token and management of total supply across all connected chains.
 
-The standard will mirror the operational framework of bnUSD, where minter contracts are deployed across various chains to provide a native user experience. This setup ensures seamless operation and accessibility of our tokens on multiple blockchains.
+The standard is abstracted from the first such implementation, [bnUSD](https://github.com/balancednetwork/balanced-java-contracts/tree/main/token-contracts/BalancedDollar), where minter contracts are deployed across connected chains to provide a native user experience. This setup ensures seamless operation and accessibility of tokens on multiple blockchains.
 
 ## Motivation
-The ICON network's focus on cross-chain interoperability depends on creating low friction paths for developers to take advantage of unified and concentrated liquidity pools on Balanced regardless of what chain they are starting from. By enabling the straightforward migration of tokens, ICON can attract builders who want to deliver smooth token experiences to their end users.
+The ICON network's focus on cross-chain interoperability depends on creating low friction paths for developers to take advantage of its General Message Passing protocol. This token standard specifies how to implement token contracts that can access unified and concentrated liquidity pools on Balanced regardless of what chain they are starting from. By enabling the straightforward migration of tokens from single chain to multi-chain implementations, ICON aims to attract builders who want to deliver smooth token experiences to their end users and leverage novel technologies that exist across multiple chains.
 
 ## Specification
 
@@ -17,7 +17,7 @@ The ICON network's focus on cross-chain interoperability depends on creating low
 #### Methods
 
 ##### name
-Returns the name of the token. e.g. `CrosssChainToken`.
+Returns the name of the token. e.g. `CrossChainToken`.
 ```java
 @External(readonly=true)
 public String name();
@@ -80,9 +80,9 @@ BigInteger xBalanceOf(String _owner);
 ##### hubTransfer
 If ```_to``` is a ICON address, use IRC2 transfer Transfers ```_value``` amount of tokens to BTP address ```_to```, and MUST fire the ``` HubTransfer``` event. This function SHOULD throw if the caller account balance does not have enough tokens to spend.
 
-The format of ```_to``` if it is XCallAddress: 
+The format of ```_to``` if it is XCallAddress:
 ```"<Network Id>.<Network System>/<Account Identifier>"```
->Examples: 
+>Examples:
 ```"0x1.icon/hxc0007b426f8880f9afbab72fd8c7817f0d3fd5c0"```,
 ```0x5.moonbeam/0x5425F5d4ba2B7dcb277C369cCbCb5f0E7185FB41```
 ```java
@@ -106,7 +106,7 @@ Must trigger on any successful hub token transfers.
 void HubTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 ```
 
-### HopToken
+### HupToken
 
 #### Methods
 
@@ -136,9 +136,9 @@ Here ```_to``` is NetworkAddress to send to, ```_value``` is amount to send, ```
 If ```_to``` is a ICON address, use IRC2 transfer
 If ``` _to``` is a NetworkAddress, then the transaction must trigger xTransfer via XCall on corresponding spoke chain and MUST fire the ```XTransfer``` event. ```_data``` can be attached to this token transaction. ```_data``` can be empty. XCall rollback message is specified to match [xCrossTransferRevert](#xcrosstransferrevert).
 
-The format of ```_to``` if it is XCallAddress: 
+The format of ```_to``` if it is XCallAddress:
 ```"<Network Id>.<Network System>/<Account Identifier>"```
->Examples: 
+>Examples:
 ```"0x1.icon/hxc0007b426f8880f9afbab72fd8c7817f0d3fd5c0"```,
 ```0x5.moonbeam/0x5425F5d4ba2B7dcb277C369cCbCb5f0E7185FB41```
 ```java
@@ -148,9 +148,9 @@ void crossTransfer(String _to, BigInteger _value, byte[] _data);
 ```
 
 ###### xCrossTransfer
-This is a method for processing cross chain transfers from spokes. 
+This is a method for processing cross chain transfers from spokes.
 Here ```_from``` is from NetworkAddress, ```_to``` is NetworkAddress to send to, ```_value``` is amount to send, ```_data``` is used in tokenFallbacks.
-If ```_to``` is a contract trigger xTokenFallback(String, int, byte[]) instead of regular tokenFallback. 
+If ```_to``` is a contract trigger xTokenFallback(String, int, byte[]) instead of regular tokenFallback.
 Internal behavior same as [xTransfer](#xtransfer) but from parameters is specified by XCall rather than the blockchain.
 ```java
 @XCall
@@ -188,4 +188,3 @@ Receives tokens cross chain enabled tokens where the ```_from``` is in a String 
 ```java
 void xTokenFallback(String _from, BigInteger _value, byte[] _data);
 ```
-
