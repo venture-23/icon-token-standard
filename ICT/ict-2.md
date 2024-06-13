@@ -11,6 +11,24 @@ The standard is abstracted from the first such implementation, [bnUSD](https://g
 The ICON network's focus on cross-chain interoperability depends on creating low friction paths for developers to take advantage of its General Message Passing protocol. This token standard specifies how to implement token contracts that can access unified and concentrated liquidity pools on Balanced regardless of what chain they are starting from. By enabling the straightforward migration of tokens from single chain to multi-chain implementations, ICON aims to attract builders who want to deliver smooth token experiences to their end users and leverage novel technologies that exist across multiple chains.
 
 ## Specification
+The cross chain token standard consists of two main libraries: HubToken and SpokeToken, and two extended libraries: IRC2 and XTokenReceiver. 
+1. [HubToken](#hubtoken)
+
+   HubToken is a token from the base chain i.e. ICON. It controls token minting in the base chain. It also tracks the total supply of the token across all chains where the token is deployed. For example, bnUSD is a token that originates in the ICON chain through Balanced. So it is deployed as a hub token in the ICON  chain and, if we want to migrate bnUSD to other chains (say SUI chain), we will deploy it as a spoke token in SUI chain. HubToken library extends [SpokeToken](#spoketoken) library.
+
+2. [SpokeToken](#spoketoken)
+
+   SpokeToken is a token from foreign chain that is deployed in an ICON chain or a token from ICON that is deployed in foreign chain. It extends the basic [IRC2](#irc2) token and has a cross chain transfer function and a function to get balance of a user across the chains. For example, if we want to migrate SUI token to ICON, we need to deploy a spoke token contract for SUI token in the ICON chain.
+
+3. [IRC2](#irc2)
+   
+   This is a library of token standard interface that provides basic functionality to transfer tokens in ICON. The SpokeToken library extends this library.
+
+4. [XTokenReceiver](#xtokenreceiver)
+
+    This library is implemanted by both the HubToken and SpokeToken on ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented [xTokenFallback](#xtokenfallback) inorder to get a successful transfer of tokens.
+
+So, the cross chain token standard in ICON chain implements both the HubToken and SpokeToken library whereas the token standard in foreign chains like SUI, Etherem implemants SpokeToken library only.
 
 ### IRC2
 
@@ -71,14 +89,14 @@ void Transfer(Address _from, Address _to, BigInteger _value, byte[] _data);
 #### Methods
 
 ##### xBalanceOf
-Returns the account balance of another account with string address {@code _owner}, which can be both ICON and BTP Address format.
+Returns the account balance of another account with string address ```_owner```, which can be both ICON and BTP Address format.
 ```java
 @External(readonly = true)
 BigInteger xBalanceOf(String _owner);
 ```
 
 ##### hubTransfer
-If ```_to``` is a ICON address, use IRC2 transfer Transfers ```_value``` amount of tokens to BTP address ```_to```, and MUST fire the ``` HubTransfer``` event. This function SHOULD throw if the caller account balance does not have enough tokens to spend.
+If ```_to``` is a ICON address, use IRC2 transfer, Transfers ```_value``` amount of tokens to BTP address ```_to```, and MUST fire the ``` HubTransfer``` event. This function SHOULD throw if the caller account balance does not have enough tokens to spend.
 
 The format of ```_to``` if it is XCallAddress:
 ```"<Network Id>.<Network System>/<Account Identifier>"```
@@ -91,7 +109,7 @@ void hubTransfer(String _to, BigInteger _value, @Optional byte[] _data);
 ```
 
 ###### xHubTransfer
-This function is callable only via XCall service on ICON. Transfers ```_value``` amount of tokens to address ```_to```, and MUST fire the ```HubTransfer``` event. This function SHOULD throw if the caller account balance does not have enough tokens to spend. If ```_to``` is a contract, this function MUST invoke the function ```xTokenFallback(String, int, bytes)``` in ```_to```. If the ```xTokenFallback``` function is not implemented in ```_to``` (receiver contract), then the transaction must fail and the transfer of tokens should not occur. If ```_to``` is an externally owned address, then the transaction must be sent without trying to execute ```XTokenFallback``` in ```_to```. ```_data``` can be attached to this token transaction. ```_data``` can be empty.
+This function is callable only via XCall service on ICON. It transfers ```_value``` amount of tokens to address ```_to```, and MUST fire the ```HubTransfer``` event. This function SHOULD throw if the caller account balance does not have enough tokens to spend. If ```_to``` is a contract, this function MUST invoke the function ```xTokenFallback(String, int, bytes)``` in ```_to```. If the ```xTokenFallback``` function is not implemented in ```_to``` (receiver contract), then the transaction must fail and the transfer of tokens should not occur. If ```_to``` is an externally owned address, then the transaction must be sent without trying to execute ```XTokenFallback``` in ```_to```. ```_data``` can be attached to this token transaction. ```_data``` can be empty.
 ```java
 @XCall
 void xHubTransfer(String from, String _to, BigInteger _value, byte[] _data);
@@ -106,7 +124,7 @@ Must trigger on any successful hub token transfers.
 void HubTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 ```
 
-### HupToken
+### HubToken
 
 #### Methods
 
@@ -184,7 +202,7 @@ void XTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 #### Methods
 
 ##### xTokenFallback
-Receives tokens cross chain enabled tokens where the ```_from``` is in a String Address format, pointing to an address on a XCall connected chain.
+Receives cross chain enabled tokens where the ```_from``` is in a String Address format, pointing to an address on a XCall connected chain.
 ```java
 void xTokenFallback(String _from, BigInteger _value, byte[] _data);
 ```
