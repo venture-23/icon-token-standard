@@ -14,23 +14,24 @@ The ICON network's focus on cross-chain interoperability depends on creating low
 The cross chain token standard consists of two main libraries: HubToken and SpokeToken, and two extended libraries: IRC2 and XTokenReceiver. 
 1. [HubToken](#hubtoken)
 
-   HubToken is a token from the base chain i.e. ICON. It controls token minting in the base chain. It also tracks the total supply of the token across all chains where the token is deployed. For example, bnUSD is a token that originates in the ICON chain through Balanced. So it is deployed as a hub token in the ICON  chain and, if we want to migrate bnUSD to other chains (say SUI chain), we will deploy it as a spoke token in SUI chain. HubToken library extends [SpokeToken](#spoketoken) library.
+   HubToken is a token from the base chain. It controls token minting in the base chain. It also tracks the total supply of the token across all chains where the tokens are deployed. For example, bnUSD is a token that originates in the ICON chain through Balanced. So it is deployed as a hub token in the ICON  chain and, if we want to migrate bnUSD to other chains (say SUI chain), we will deploy it as a spoke token in SUI chain. Simliarly, if we want to make any token from SUI say PumpUp(PUP), a cross chain token then it is deployed as hub token in SUI chain and as spoke token in ICON chain.  HubToken library extends [SpokeToken](#spoketoken) library.
 
 2. [SpokeToken](#spoketoken)
 
-   SpokeToken is a token from foreign chain that is deployed in an ICON chain or a token from ICON that is deployed in foreign chain. It extends the basic [IRC2](#irc2) token and has a cross chain transfer function and a function to get balance of a user across the chains. For example, if we want to migrate SUI token to ICON, we need to deploy a spoke token contract for SUI token in the ICON chain.
+   SpokeToken is a token from a foreign chain. In ICON, it extends the basic [IRC2](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-2.md) token and has a cross chain transfer function and a function to get balance of a user across the chains. If we want to move a token from a base chain to some foreign chains, the token is depolyed as a spoke token in all other foreign chains. For example, if we want to migrate SUI token to ICON, we will deploy a spoke token contract for SUI token in the ICON chain.
 
-3. [IRC2](#irc2)
+3. [IRC2](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-2.md)
    
    This is a library of token standard interface that provides basic functionality to transfer tokens in ICON. The SpokeToken library extends this library.
 
-4. [XTokenReceiver](#xtokenreceiver)
+3. [XTokenReceiver](#xtokenreceiver)
 
     This library is implemanted by both the HubToken and SpokeToken on ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented [xTokenFallback](#xtokenfallback) inorder to get a successful transfer of tokens.
 
-So, the cross chain token standard in ICON chain implements both the HubToken and SpokeToken library whereas the token standard in foreign chains like SUI, Etherem implemants SpokeToken library only.
+So, for a token to be a cross chain token, it needs to implement the cross chain token standard in their respective chain. A token is deployed as a HubToken in it's base chain and as a SpokeToken in other foreign chains.
 
-### IRC2
+### SpokeToken
+SpokeToken library extends the basic token standard of that chain. In ICON, it extends basic IRC2 token and has a cross chain transfer function.
 
 #### Methods
 
@@ -75,19 +76,6 @@ Transfers `_value` amount of tokens to address `_to`, and MUST fire the `Transfe
 void transfer(Address _to, BigInteger _value, @Optional byte[] _data);
 ```
 
-#### Eventlogs
-
-##### Transfer
-Must trigger on any successful token transfers.
-```java
-@EventLog
-void Transfer(Address _from, Address _to, BigInteger _value, byte[] _data);
-```
-
-### SpokeToken
-
-#### Methods
-
 ##### xBalanceOf
 Returns the account balance of another account with string address ```_owner```, which can be both ICON and BTP Address format.
 ```java
@@ -117,6 +105,13 @@ void xHubTransfer(String from, String _to, BigInteger _value, byte[] _data);
 
 #### Eventlogs
 
+##### Transfer
+Must trigger on any successful token transfers.
+```java
+@EventLog
+void Transfer(Address _from, Address _to, BigInteger _value, byte[] _data);
+```
+
 ##### HubTransfer
 Must trigger on any successful hub token transfers.
 ```java
@@ -125,6 +120,7 @@ void HubTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 ```
 
 ### HubToken
+Hub token extends the [SpokeToken](#spoketoken) library. It inclides functions to track total supply across all connected chains
 
 #### Methods
 
@@ -150,11 +146,10 @@ String[] getConnectedChains();
 ```
 
 ##### crossTransfer
-Here ```_to``` is NetworkAddress to send to, ```_value``` is amount to send, ```_data``` is used in tokenFallbacks.
-If ```_to``` is a ICON address, use IRC2 transfer
-If ``` _to``` is a NetworkAddress, then the transaction must trigger xTransfer via XCall on corresponding spoke chain and MUST fire the ```XTransfer``` event. ```_data``` can be attached to this token transaction. ```_data``` can be empty. XCall rollback message is specified to match [xCrossTransferRevert](#xcrosstransferrevert).
+Here ```_to``` is NetworkAddress to send to, ```_value``` is amount to send, ```_data``` is used in tokenFallbacks. If ```_to``` is a ICON address, use IRC2 transfer, if it is a NetworkAddress, then the transaction must trigger xTransfer via XCall on corresponding spoke chain and MUST fire the ```XTransfer``` event. ```_data``` can be attached to this token transaction. ```_data``` can be empty. XCall rollback message is specified to match [xCrossTransferRevert](#xcrosstransferrevert).
 
 The format of ```_to``` if it is XCallAddress:
+
 ```"<Network Id>.<Network System>/<Account Identifier>"```
 >Examples:
 ```"0x1.icon/hxc0007b426f8880f9afbab72fd8c7817f0d3fd5c0"```,
@@ -166,10 +161,9 @@ void crossTransfer(String _to, BigInteger _value, byte[] _data);
 ```
 
 ###### xCrossTransfer
-This is a method for processing cross chain transfers from spokes.
-Here ```_from``` is from NetworkAddress, ```_to``` is NetworkAddress to send to, ```_value``` is amount to send, ```_data``` is used in tokenFallbacks.
-If ```_to``` is a contract trigger xTokenFallback(String, int, byte[]) instead of regular tokenFallback.
-Internal behavior same as [xTransfer](#xtransfer) but from parameters is specified by XCall rather than the blockchain.
+This is a method for processing cross chain transfers from spokes. Here ```_from``` is from NetworkAddress, ```_to``` is NetworkAddress to send to, ```_value``` is amount to send, ```_data``` is used in tokenFallbacks.
+If ```_to``` is a contract, trigger xTokenFallback(String, int, byte[]) instead of regular tokenFallback.
+Internal behavior is same as [xTransfer](#xtransfer) but from parameters is specified by XCall rather than the blockchain.
 ```java
 @XCall
 void xCrossTransfer(String from, String _from, String _to, BigInteger _value, byte[] _data);
@@ -182,7 +176,7 @@ void xCrossTransferRevert(String from, String _to, BigInteger _value);
 ```
 
 ##### xTransfer
-Method for transferring hub balances to a spoke chain, ```from``` is a EOA address of a connected chain. Uses ```from``` to xTransfer the balance on ICON to native address on a calling chain.
+This is a method for transferring hub balances to a spoke chain, ```from``` is a EOA address of a connected chain. Uses ```from``` to xTransfer the balance on ICON to native address on a calling chain.
 ```java
 @XCall
 void xTransfer(String from, String _to, BigInteger _value, byte[] _data);
@@ -198,6 +192,7 @@ void XTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 ```
 
 ### XTokenReceiver
+This library is used to handle the cross chain token transfer to the contracts in ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented ```xTokenFallback``` inorder to get a successful transfer of tokens.
 
 #### Methods
 
