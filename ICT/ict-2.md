@@ -14,11 +14,11 @@ The ICON network's focus on cross-chain interoperability depends on creating low
 The cross chain token standard consists of two main libraries: HubToken and SpokeToken, and two extended libraries: IRC2 and XTokenReceiver. 
 1. [HubToken](#hubtoken)
 
-   HubToken is a token from the base chain. It controls token minting in the base chain. It also tracks the total supply of the token across all chains where the tokens are deployed. For example, bnUSD is a token that originates in the ICON chain through Balanced. So it is deployed as a hub token in the ICON  chain and, if we want to migrate bnUSD to other chains (say SUI chain), we will deploy it as a spoke token in SUI chain. Simliarly, if we want to make any token from SUI say PumpUp(PUP), a cross chain token then it is deployed as hub token in SUI chain and as spoke token in ICON chain.  HubToken library extends [SpokeToken](#spoketoken) library.
+   HubToken is a token from the base chain. It controls token minting in the base chain. It also tracks the total supply of the token across all chains where the tokens are deployed. For example, bnUSD is a token that originates in the ICON chain through Balanced. So it is deployed as a hub token in the ICON  chain and, if we want to migrate bnUSD to other chains (say SUI chain), we will deploy it as a spoke token in SUI chain. Similarly, if we want to make any token from SUI, say PumpUp(PUP), a cross chain token then it is deployed as a hub token in SUI chain and as a spoke token in ICON chain.  HubToken library extends [SpokeToken](#spoketoken) library.
 
 2. [SpokeToken](#spoketoken)
 
-   SpokeToken is a token from a foreign chain. In ICON, it extends the basic [IRC2](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-2.md) token and has a cross chain transfer function and a function to get balance of a user across the chains. If we want to move a token from a base chain to some foreign chains, the token is depolyed as a spoke token in all other foreign chains. For example, if we want to migrate SUI token to ICON, we will deploy a spoke token contract for SUI token in the ICON chain.
+   SpokeToken is a token from a foreign chain. In ICON, it extends the basic [IRC2](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-2.md) token and has a cross chain transfer function and a function to get balance of a user across the chains. If we want to move a token from a base chain to some foreign chains, the token is deployed as a spoke token in all other foreign chains. For example, if we want to migrate SUI token to ICON, we will deploy a spoke token contract for SUI token in the ICON chain.
 
 3. [IRC2](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-2.md)
    
@@ -26,12 +26,12 @@ The cross chain token standard consists of two main libraries: HubToken and Spok
 
 3. [XTokenReceiver](#xtokenreceiver)
 
-    This library is implemanted by both the HubToken and SpokeToken on ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented [xTokenFallback](#xtokenfallback) inorder to get a successful transfer of tokens.
+   This library is implemented by both the HubToken and SpokeToken on the ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented [xTokenFallback](#xtokenfallback) in order to get a successful transfer of tokens.
 
-So, for a token to be a cross chain token, it needs to implement the cross chain token standard in their respective chain. A token is deployed as a HubToken in it's base chain and as a SpokeToken in other foreign chains.
+So, for a token to be a cross chain token, it needs to implement the cross chain token standard in their respective chain. A token is deployed as a HubToken in its base chain and as a SpokeToken in other foreign chains.
 
 ### SpokeToken
-SpokeToken library extends the basic token standard of that chain. In ICON, it extends basic IRC2 token and has a cross chain transfer function.
+SpokeToken library extends the basic token standard of the respective chains. In ICON, it extends basic IRC2 token and has a cross chain transfer function.
 
 #### Methods
 
@@ -120,7 +120,7 @@ void HubTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 ```
 
 ### HubToken
-Hub token extends the [SpokeToken](#spoketoken) library. It inclides functions to track total supply across all connected chains
+Hub token extends the [SpokeToken](#spoketoken) library. It controls token minting and includes a function to track total supply across all connected chains.
 
 #### Methods
 
@@ -192,7 +192,7 @@ void XTransfer(String _from, String _to, BigInteger _value, byte[] _data);
 ```
 
 ### XTokenReceiver
-This library is used to handle the cross chain token transfer to the contracts in ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented ```xTokenFallback``` inorder to get a successful transfer of tokens.
+This library is used to handle the cross chain token transfer to the contracts in the ICON chain. It extends the TokenFallback method of ICON. The function [xTokenFallback](#xtokenfallback) is only callable via XCall services on ICON. It is called when transfer is called from the foreign chain and the receiving address is a contract in ICON. The receiving contract must have implemented ```xTokenFallback``` inorder to get a successful transfer of tokens.
 
 #### Methods
 
