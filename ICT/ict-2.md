@@ -201,3 +201,13 @@ Receives cross chain enabled tokens where the ```_from``` is in a String Address
 ```java
 void xTokenFallback(String _from, BigInteger _value, byte[] _data);
 ```
+
+### References
+Existing code developed by the Balanced team.
+* [IRC2](https://github.com/icon-project/IIPs/blob/master/IIPS/iip-2.md)
+
+* [SpokeToken](https://github.com/balancednetwork/balanced-java-contracts/blob/1-balanced-on-havah/score-lib/src/main/java/network/balanced/score/lib/interfaces/tokens/SpokeToken.java)
+
+* [HubToken](https://github.com/balancednetwork/balanced-java-contracts/blob/1-balanced-on-havah/score-lib/src/main/java/network/balanced/score/lib/interfaces/tokens/HubToken.java)
+
+* [XTokenReceiver](https://github.com/balancednetwork/balanced-java-contracts/blob/1-balanced-on-havah/score-lib/src/main/java/network/balanced/score/lib/interfaces/tokens/XTokenReceiver.java)
