@@ -4,3 +4,5 @@
 .idea
 
 /CrossChainToken/build/
+
+.DS_Store
