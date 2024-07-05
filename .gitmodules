@@ -4,3 +4,6 @@
 [submodule "solidity-contracts/icon-cross-chain-token/lib/openzeppelin-contracts"]
 	path = solidity-contracts/icon-cross-chain-token/lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "solidity-contracts/icon-cross-chain-token/lib/openzeppelin-contracts-upgradeable"]
+	path = solidity-contracts/icon-cross-chain-token/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/openzeppelin/openzeppelin-contracts-upgradeable
