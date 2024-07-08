@@ -2,8 +2,7 @@
 module spoke_token::hub_transfer {
     use std::string::{Self, String};
     use std::option::{some, none};
-    use sui_rlp::encoder;
-    use sui_rlp::decoder;
+    use sui_rlp::{encoder, decoder};
 
     public struct XHubTransfer has drop{
         from: String, 
