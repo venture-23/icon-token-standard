@@ -1,4 +1,4 @@
 @openzeppelin/contracts-upgradeable=lib/openzeppelin-contracts-upgradeable/contracts
 @openzeppelin/contracts=lib/openzeppelin-contracts/contracts/
-@icon-project/xcall-multi/contracts/evm/library/xcall=library/btp2
+@icon-project/xcall-multi/tree/main/contracts/evm/library/xcall=library/btp2
 @balanced/contracts=src
