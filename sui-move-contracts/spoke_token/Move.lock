@@ -20,7 +20,6 @@ source = { git = "https://github.com/MystenLabs/sui.git", rev = "framework/testn
 dependencies = [
   { name = "MoveStdlib" },
 ]
-<<<<<<< HEAD
 
 [[move.package]]
 name = "sui_rlp"
@@ -43,5 +42,3 @@ dependencies = [
 compiler-version = "1.27.2"
 edition = "2024.beta"
 flavor = "sui"
-=======
->>>>>>> 2e15efd87ed8e32bc4533bb215e157f44e585385
