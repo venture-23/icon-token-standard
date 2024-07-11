@@ -5,10 +5,18 @@ module spoke_token::spoke_token {
     use sui::url::{Self, Url};
     use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
     use sui::balance::{Self, Balance};
+    use sui::package::UpgradeCap;
+    use sui::sui::SUI;
     use sui::event;
 
     use spoke_token::spoke_token_utils::{address_to_hex_string, address_from_hex_string};
-    use spoke_token::hub_transfer::{Self, wrap_hub_transfer, XHubTransfer};
+    use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XHubTransfer};
+    use spoke_token::cross_transfer_revert::{Self};
+    use spoke_token::manager::{Self, Config as ManagerConfig};
+
+    use xcall::{main as xcall};
+    use xcall::envelope::{Self};
+    use xcall::xcall_state::{Self, Storage, IDCap};
 
 
     // === Errors ===
@@ -19,10 +27,30 @@ module spoke_token::spoke_token {
 
     const ENotZero: u64 = 3;
 
+    const EWrongVersion: u64 = 4;
+
+    const ENotUpgrade: u64 = 5;
+
+    /// Constants
+    const CURRENT_VERSION: u64 = 1;
+
+    const CROSS_TRANSFER: vector<u8> = b"xCrossTransfer";
+    const CROSS_TRANSFER_REVERT: vector<u8> = b"xCrossTransferTevert";
+
     public struct SpokeToken<phantom T> has key, store {
         id: UID,
         // Balance of Spoke token
         balance: Balance<T>
+    }
+
+    public struct Config<phantom T> has key {
+        id: UID,
+        version: u64,
+        icon_token: String,
+        id_cap:IDCap,
+        xcall_manager_id: ID,
+        xcall_id: ID,
+        balance_treasury_cap: TreasuryCap<T>
     }
 
     /// Create new currency of type 'T'
@@ -98,28 +126,63 @@ module spoke_token::spoke_token {
         transfer::transfer(token, ctx.sender())
     }
 
-    public fun hub_transfer<T>(
-        cap: &mut TreasuryCap<T>,
-        to: String, 
-        token:Coin<T>,
+    // public fun hub_transfer<T>(
+    //     cap: &mut TreasuryCap<T>,
+    //     to: String, 
+    //     token:Coin<T>,
+    //     data: Option<vector<u8>>,
+    //     ctx: &mut TxContext
+    // ) {
+    //     let messageData = option::get_with_default(&data, b"");
+    //     let amount = coin::value(&token);
+    //     assert!(amount > 0, EAmountLessThanZero);
+    //     coin::burn(cap, token);
+
+    //     let from = ctx.sender();
+
+    //     let fromAddress = address_to_hex_string(&from);
+
+    //     wrap_hub_transfer(
+    //         fromAddress,
+    //         to,
+    //         translate_outgoing_amount(amount),
+    //         messageData
+    //     );
+    // }
+
+    public fun cross_transfer<T>(
+        config: &mut Config<T>,
+        x_ctx:&mut Storage,
+        x_manager_conf: &ManagerConfig,
+        fee: Coin<SUI>,
+        token: Coin<T>,
+        to: String,
         data: Option<vector<u8>>,
-        ctx: &mut TxContext
-    ) {
-        let messageData = option::get_with_default(&data, b"");
+        cap: &mut TreasuryCap<T>,
+        ctx: &mut TxContext,
+    ){
+        validate_version(config);
+        let message_data = option::get_with_default(&data, b"");
         let amount = coin::value(&token);
         assert!(amount > 0, EAmountLessThanZero);
         coin::burn(cap, token);
 
-        let from = ctx.sender();
-
-        let fromAddress = address_to_hex_string(&from);
-
-        wrap_hub_transfer(
-            fromAddress,
+        let sender = ctx.sender();
+        let from_address = address_to_hex_string(&sender);
+        let x_message = wrap_hub_transfer(
+            from_address,
             to,
             translate_outgoing_amount(amount),
-            messageData
+            message_data
         );
+        let x_rollback  = cross_transfer_revert::wrap_cross_transfer_revert(sender, amount);
+
+        let (source, destination) = manager::get_protocals(x_manager_conf);
+
+        let x_encoded_msg = cross_transfer::encode(&x_message, CROSS_TRANSFER);
+        let rollback = cross_transfer_revert::encode(&x_rollback, CROSS_TRANSFER_REVERT);
+        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, source, destination);
+        xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
 
     fun translate_outgoing_amount(amount: u64): u128 {
@@ -127,5 +190,40 @@ module spoke_token::spoke_token {
         (amount as u128) * multiplier 
     }
 
-}
+    fun validate_version<T>(self: &Config<T>){
+        assert!(self.version == CURRENT_VERSION, EWrongVersion);
+    }
 
+
+    entry fun migrate<T>(self: &mut Config<T>, _: &UpgradeCap){
+        assert!(get_version(self) < CURRENT_VERSION, ENotUpgrade);
+        set_version(self, CURRENT_VERSION);
+    }
+
+    fun set_version<T>(config: &mut Config<T>, version: u64){
+        config.version = version
+    }
+
+    /// Getters
+    public fun get_idcap<T>(config: &Config<T>): &IDCap{
+        validate_version<T>(config);
+        &config.id_cap
+    }
+
+    public fun get_xcall_manager_id<T>(config: &Config<T>): ID{
+        validate_version<T>(config);
+        config.xcall_manager_id
+    }
+
+    public fun get_xcall_id<T>(config: &Config<T>): ID{
+        validate_version<T>(config);
+        config.xcall_id
+    }
+
+    public fun get_version<T>(config: &Config<T>): u64{
+        config.version
+    }
+
+    
+
+}
