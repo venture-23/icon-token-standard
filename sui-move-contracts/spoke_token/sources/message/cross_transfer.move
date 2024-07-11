@@ -4,14 +4,14 @@ module spoke_token::cross_transfer {
     use std::option::{some, none};
     use sui_rlp::{encoder, decoder};
 
-    public struct XHubTransfer has drop{
+    public struct XCrossTransfer has drop{
         from: String, 
         to: String,
         value: u128,
         data: vector<u8>
     }
 
-    public fun encode(req:&XHubTransfer, method: vector<u8>):vector<u8>{
+    public fun encode(req:&XCrossTransfer, method: vector<u8>):vector<u8>{
         let mut list=vector::empty<vector<u8>>();
         vector::push_back(&mut list, encoder::encode(&method));
         vector::push_back(&mut list,encoder::encode_string(&req.from));
@@ -23,13 +23,13 @@ module spoke_token::cross_transfer {
         encoded
     }
 
-    public fun decode(bytes:&vector<u8>): XHubTransfer {
+    public fun decode(bytes:&vector<u8>): XCrossTransfer {
         let decoded=decoder::decode_list(bytes);
         let from = decoder::decode_string(vector::borrow(&decoded, 1));
         let to = decoder::decode_string(vector::borrow(&decoded, 2));
         let value = decoder::decode_u128(vector::borrow(&decoded, 3));
         let data = *vector::borrow(&decoded, 4);
-        let req= XHubTransfer {
+        let req= XCrossTransfer {
             from,
             to,
             value,
@@ -38,8 +38,8 @@ module spoke_token::cross_transfer {
         req
     }
 
-     public fun wrap_hub_transfer(from: String, to: String, value: u128, data: vector<u8>): XHubTransfer {
-        let hub_transfer = XHubTransfer {
+     public fun wrap_hub_transfer(from: String, to: String, value: u128, data: vector<u8>): XCrossTransfer {
+        let hub_transfer = XCrossTransfer {
             from: from,
             to: to,
             value: value,
@@ -54,19 +54,19 @@ module spoke_token::cross_transfer {
         *vector::borrow(&decoded, 0)
     }
 
-    public fun from(hub_transfer: &XHubTransfer): String{
+    public fun from(hub_transfer: &XCrossTransfer): String{
         hub_transfer.from
     }
 
-    public fun to(hub_transfer: &XHubTransfer): String{
+    public fun to(hub_transfer: &XCrossTransfer): String{
         hub_transfer.to
     }
 
-    public fun value(hub_transfer: &XHubTransfer): u128{
+    public fun value(hub_transfer: &XCrossTransfer): u128{
         hub_transfer.value
     }
 
-    public fun data(hub_transfer: &XHubTransfer): vector<u8>{
+    public fun data(hub_transfer: &XCrossTransfer): vector<u8>{
         hub_transfer.data
     }
 
