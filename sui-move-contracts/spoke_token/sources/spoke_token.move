@@ -2,7 +2,7 @@
 module spoke_token::spoke_token {
     use sui::math::{Self};
     use std::string::String;
-    use sui::url::{Self, Url};
+    use sui::url::Url;
     use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
     use sui::balance::{Self, Balance};
     use sui::package::UpgradeCap;
@@ -10,13 +10,15 @@ module spoke_token::spoke_token {
     use sui::event;
 
     use spoke_token::spoke_token_utils::{address_to_hex_string, address_from_hex_string};
-    use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XHubTransfer};
+    use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
     use spoke_token::cross_transfer_revert::{Self};
     use spoke_token::manager::{Self, Config as ManagerConfig};
 
     use xcall::{main as xcall};
+    use xcall::execute_ticket::{Self};
     use xcall::envelope::{Self};
-    use xcall::xcall_state::{Self, Storage, IDCap};
+    use xcall::network_address::{Self};
+    use xcall::xcall_state::{Storage, IDCap};
 
 
     // === Errors ===
@@ -72,6 +74,12 @@ module spoke_token::spoke_token {
     ): SpokeToken<T> {
         let balance = cap.supply_mut().increase_supply(amount);
         SpokeToken { id: object::new(ctx), balance }
+    }
+
+    public fun mint_and_transfer<T>(
+        cap: &mut TreasuryCap<T>, amount: u64, receipent: address, ctx: &mut TxContext
+    ){
+        transfer::transfer(mint(cap, amount, ctx), receipent);
     }
 
 
@@ -185,9 +193,46 @@ module spoke_token::spoke_token {
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
 
+    public (package) fun execute_call<T>(
+        config: &Config<T>,
+        x_ctx:&mut Storage,
+        x_manager_conf: &ManagerConfig,
+        fee: Coin<SUI>,
+        request_id:u128,
+        data: vector<u8>,
+        cap: &mut TreasuryCap<T>,
+        ctx: &mut TxContext,
+    ){
+        validate_version(config);
+        let ticket = xcall::execute_call(x_ctx, get_idcap(config), request_id, data, ctx);
+        let msg = execute_ticket::message(&ticket);
+        let from = execute_ticket::from(&ticket);
+        let protocols = execute_ticket::protocols(&ticket);
+
+        let verified = manager::verify_protocols(x_manager_conf, protocols);
+        let method: vector<u8> = cross_transfer::get_method(&msg);
+
+        if( verified && method == CROSS_TRANSFER && from == network_address::from_string(config.icon_token)){
+            let message: XCrossTransfer = cross_transfer::decode(&msg);
+            let string_to = cross_transfer::to(&message);
+            let to  = network_address::addr(&network_address::from_string(string_to));
+            let amount = translate_incoming_amount(cross_transfer::value(&message));
+            // TODO: mint here
+            mint_and_transfer(cap, amount, address_from_hex_string(&to),ctx);
+            xcall::execute_call_result(x_ctx, ticket, true, fee, ctx);
+        }else {
+            xcall::execute_call_result(x_ctx, ticket, false, fee, ctx);
+        }
+
+    }
+
     fun translate_outgoing_amount(amount: u64): u128 {
         let multiplier = math::pow(10, 9) as u128;
         (amount as u128) * multiplier 
+    }
+
+    fun translate_incoming_amount(amount: u128): u64{
+        (amount / (math::pow(10,9) as u128)) as u64
     }
 
     fun validate_version<T>(self: &Config<T>){
@@ -223,7 +268,4 @@ module spoke_token::spoke_token {
     public fun get_version<T>(config: &Config<T>): u64{
         config.version
     }
-
-    
-
 }
