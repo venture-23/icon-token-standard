@@ -49,4 +49,28 @@ module spoke_token::manager{
     public fun get_version(config: &Config): u64{
         config.version
     }
+
+    public fun verify_protocols(config: &Config, protocols: vector<String>): bool{
+        validate_version(config);
+        verify_protocols_unordered(config.source, protocols)
+    }
+
+    fun verify_protocols_unordered(array1: vector<String>, array2: vector<String>): bool{
+        let len  =  vector::length(&array1);
+        if(len != vector::length(&array2)){
+            false
+        } else{
+            let mut matched = true;
+            let mut i = 0;
+            while(i < len){
+                let protocol = vector::borrow(&array2, i);
+                if (!vector::contains(&array1, protocol)){
+                    matched = false;
+                    break
+                };
+                i = i +1;
+            };
+            matched
+        }
+    }
 }
