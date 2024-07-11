@@ -1,5 +1,5 @@
 #[allow(unused_field,unused_use,unused_const,unused_mut_parameter,unused_variable,unused_assignment)]
-module spoke_token::hub_transfer {
+module spoke_token::cross_transfer {
     use std::string::{Self, String};
     use std::option::{some, none};
     use sui_rlp::{encoder, decoder};
