@@ -2,12 +2,12 @@ package icon.cross.chain.token.lib.tokens;
 
 import foundation.icon.xcall.NetworkAddress;
 import icon.cross.chain.token.lib.interfaces.tokens.SpokeToken;
-import icon.cross.chain.token.lib.utils.BalancedAddressManager;
 import icon.cross.chain.token.lib.utils.NetworkAddressDictDB;
+import icon.cross.chain.token.lib.utils.ProtocolConfig;
 import icon.cross.chain.token.lib.utils.SpokeTokenXCall;
-import icon.cross.chain.token.lib.utils.XCallUtils;
 import score.Address;
 import score.Context;
+import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
@@ -15,8 +15,8 @@ import score.annotation.Optional;
 
 import java.math.BigInteger;
 
-import static icon.cross.chain.token.lib.utils.Check.checkStatus;
-import static icon.cross.chain.token.lib.utils.Check.only;
+import static icon.cross.chain.token.lib.utils.Check.*;
+import static icon.cross.chain.token.lib.utils.XCallUtils.hasSource;
 
 public class SpokeTokenImpl implements SpokeToken {
     private final static String NAME = "name";
@@ -24,6 +24,9 @@ public class SpokeTokenImpl implements SpokeToken {
     private final static String DECIMALS = "decimals";
     private final static String TOTAL_SUPPLY = "total_supply";
     protected final static String BALANCES = "balances";
+    private final static String X_CALL = "x_call";
+    public static final String PROTOCOLS = "protocols";
+
     public static String NATIVE_NID;
 
     static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
@@ -33,8 +36,14 @@ public class SpokeTokenImpl implements SpokeToken {
     private final VarDB<BigInteger> decimals = Context.newVarDB(DECIMALS, BigInteger.class);
     private final VarDB<BigInteger> totalSupply = Context.newVarDB(TOTAL_SUPPLY, BigInteger.class);
     protected final NetworkAddressDictDB<BigInteger> balances = new NetworkAddressDictDB<>(BALANCES, BigInteger.class);
+    protected static final VarDB<Address> xCall = Context.newVarDB(X_CALL, Address.class);
+    DictDB<String, ProtocolConfig> protocols = Context.newDictDB(PROTOCOLS, ProtocolConfig.class);
 
-    public SpokeTokenImpl(String nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
+
+    public SpokeTokenImpl(Address _xCall, String[] sources, String[] destinations, String nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
+        xCall.set(_xCall);
+        ProtocolConfig cfg = new ProtocolConfig(sources, destinations);
+        protocols.set(nid, cfg);
         NATIVE_NID = nid;
         if (this.name.get() == null) {
             _decimals = _decimals == null ? BigInteger.valueOf(18L) : _decimals;
@@ -86,6 +95,16 @@ public class SpokeTokenImpl implements SpokeToken {
     }
 
     @External(readonly = true)
+    public Address getXCall() {
+        return xCall.get();
+    }
+
+    @External(readonly = true)
+    public ProtocolConfig getProtocols(String id) {
+        return protocols.get(id);
+    }
+
+    @External(readonly = true)
     public BigInteger balanceOf(Address _owner) {
         NetworkAddress address =  new NetworkAddress(NATIVE_NID, _owner);
         return balances.getOrDefault(address, BigInteger.ZERO);
@@ -95,6 +114,13 @@ public class SpokeTokenImpl implements SpokeToken {
     public BigInteger xBalanceOf(String _owner) {
         NetworkAddress address = NetworkAddress.valueOf(_owner);
         return balances.getOrDefault(address, BigInteger.ZERO);
+    }
+
+    @External
+    public void configureProtocols(String nid, String[] sources, String[] destinations) {
+        onlyOwner();
+        ProtocolConfig cfg = new ProtocolConfig(sources, destinations);
+        protocols.set(nid, cfg);
     }
 
     @External
@@ -125,9 +151,8 @@ public class SpokeTokenImpl implements SpokeToken {
 
     @External
     public void handleCallMessage(String _from, byte[] _data, @Optional String[] _protocols) {
-        checkStatus();
-        only(BalancedAddressManager.getXCall());
-        XCallUtils.verifyXCallProtocols(_from, _protocols);
+        only(xCall.get());
+        verifyProtocols(_from, _protocols);
         SpokeTokenXCall.process(this, _from, _data);
     }
 
@@ -208,5 +233,26 @@ public class SpokeTokenImpl implements SpokeToken {
 
     protected boolean isNative(NetworkAddress address) {
         return address.net().equals(NATIVE_NID);
+    }
+
+    protected void verifyProtocols(String _from, @Optional String[] protocols) {
+        NetworkAddress from = NetworkAddress.valueOf(_from);
+        String nid = from.net();
+
+        if (nid.equals(NATIVE_NID)) {
+            // Is a rollback
+            return;
+        }
+
+        ProtocolConfig cfg = this.protocols.get(nid);
+        Context.require(cfg != null,  this.name.get() + ": Network is not configured");
+        if (cfg.sources.length == 0) {
+            Context.require(protocols == null || protocols.length == 0, this.name.get() + ": Invalid protocols used to deliver message");
+            return;
+        }
+
+        for (String source : cfg.sources) {
+            Context.require(hasSource(source, protocols),  this.name.get() + ": Invalid protocols used to deliver message");
+        }
     }
 }
