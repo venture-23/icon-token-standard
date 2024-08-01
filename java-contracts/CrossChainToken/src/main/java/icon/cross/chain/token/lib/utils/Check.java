@@ -20,9 +20,6 @@ import score.Address;
 import score.Context;
 import score.VarDB;
 
-import java.math.BigInteger;
-
-import static icon.cross.chain.token.lib.utils.BalancedAddressManager.getGovernance;
 
 public class Check {
 
@@ -30,10 +27,6 @@ public class Check {
         Address caller = Context.getCaller();
         Address owner = Context.getOwner();
         Context.require(caller.equals(owner), "SenderNotScoreOwner: Sender=" + caller + "Owner=" + owner);
-    }
-
-    public static void checkStatus() {
-        checkStatus(getGovernance());
     }
 
     public static void checkStatus(VarDB<Address> address) {
@@ -48,11 +41,6 @@ public class Check {
     public static void checkStatus(Address handler) {
         String caller = Context.getCaller().toString();
         Context.call(handler, "checkStatus", caller);
-    }
-
-    public static void onlyGovernance() {
-        Address governance = getGovernance();
-        only(governance);
     }
 
     public static void onlyOwnerOrContract() {
@@ -72,44 +60,6 @@ public class Check {
         Context.require(authorizedCallerAddress != null, "Authorization Check: Address not set");
         Context.require(caller.equals(authorizedCallerAddress),
                 "Authorization Check: Authorization failed. Caller: " + caller + " Authorized Caller: " + authorizedCallerAddress);
-    }
-
-    public static void onlyEither(Address authorizedCaller, Address authorizedCaller2) {
-        Address caller = Context.getCaller();
-        Context.require(authorizedCaller != null || authorizedCaller2 != null,
-                "Authorization Check: Address not set");
-        Context.require(caller.equals(authorizedCaller) ||
-                        caller.equals(authorizedCaller2),
-                "Authorization Check: Authorization failed. Caller: " + caller + " Authorized Caller: " + authorizedCaller + " or " + authorizedCaller2);
-    }
-
-    public static void isContract(Address address) {
-        Context.require(address.isContract(), "Address Check: Address provided is an EOA address. A contract address " +
-                "is required.");
-    }
-
-    public static BigInteger optionalDefault(BigInteger value, BigInteger base) {
-        if (value.equals(BigInteger.ZERO)) {
-            return base;
-        }
-
-        return value;
-    }
-
-    public static Address optionalDefault(Address value, Address base) {
-        if (value == null) {
-            return base;
-        }
-
-        return value;
-    }
-
-    public static String optionalDefault(String value, String base) {
-        if (value == null) {
-            return base;
-        }
-
-        return value;
     }
 
     /**
