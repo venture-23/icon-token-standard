@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 
 import "../../library/btp/utils/NetworkAddress.sol";
 import "../../library/btp/utils/Strings.sol";
@@ -19,7 +21,7 @@ import "./RLPEncodeStruct.sol";
 import "./RLPDecodeStruct.sol";
 import "../utils/SpokeUtils.sol";
 
-contract SpokeToken is
+contract HomeSpokeToken is
     ERC20Upgradeable,
     ICallServiceReceiver,
     UUPSUpgradeable,
@@ -32,14 +34,19 @@ contract SpokeToken is
     using RLPEncodeStruct for Messages.XCrossTransfer;
     using RLPEncodeStruct for Messages.XCrossTransferRevert;
     using RLPDecodeStruct for bytes;
+    using SafeERC20 for IERC20;
 
     address public xCall;
+    address public token;
     string public xCallNetworkAddress;
     string public nid;
     string public iconTokenAddress;
     // address public xCallManager;
     string[] public sources;
     string[] public destinations;
+
+    address public constant NATIVE_ADDRESS = address(0);
+
 
     event ProtocolsConfigured(string[] sources, string[] destinations);
 
@@ -48,8 +55,9 @@ contract SpokeToken is
     }
 
     function initialize(
-        string calldata name,
-        string calldata symbol,
+        // string calldata name,
+        // string calldata symbol,
+        address _token,
         address _xCall,
         string memory _iconTokenAddress,
         string[] memory _source,
@@ -59,13 +67,14 @@ contract SpokeToken is
             _xCall != address(0),
             "Zero address not allowed"
         );
+        token = _token;
         xCall = _xCall;
         xCallNetworkAddress = ICallService(xCall).getNetworkAddress();
         nid = xCallNetworkAddress.nid();
         iconTokenAddress = _iconTokenAddress;
         sources = _source;
         destinations = _destinatons;
-        __ERC20_init(name, symbol);
+        // __ERC20_init(name, symbol);
         __Ownable_init(msg.sender);
     }
 
@@ -100,8 +109,8 @@ contract SpokeToken is
         bytes memory data
     ) internal {
         require(value > 0, "Amount less than minimum amount");
-        _burn(msg.sender, value);
-
+        // _burn(msg.sender, value);
+        IERC20(token).transferFrom(msg.sender, address(this), value);
         string memory from = nid.networkAddress(msg.sender.toString());
         // Validate address
         to.parseNetworkAddress();
@@ -127,23 +136,26 @@ contract SpokeToken is
         );
     }
 
+
     function handleCallMessage(
         string calldata from,
         bytes calldata data,
         string[] calldata protocols
     ) external onlyCallService {
-        require(SpokeUtils.verifyProtocolsUnordered(sources, protocols), "Protocol Mismatch");
+        SpokeUtils.verifyProtocolsUnordered(sources, protocols);
         string memory method = data.getMethod();
         if (method.compareTo(Messages.CROSS_TRANSFER)) {
             require(from.compareTo(iconTokenAddress), "onlyiconTokenAddress");
             Messages.XCrossTransfer memory message = data.decodeCrossTransfer();
             (, string memory to) = message.to.parseNetworkAddress();
-            _mint(to.parseAddress("Invalid account"), message.value);
+            // _mint(to.parseAddress("Invalid account"), message.value);
+            IERC20(token).transferFrom(address(this), to.parseAddress("Invalid account"), message.value);
         } else if (method.compareTo(Messages.CROSS_TRANSFER_REVERT)) {
             require(from.compareTo(xCallNetworkAddress), "onlyCallService");
             Messages.XCrossTransferRevert memory message = data
                 .decodeCrossTransferRevert();
-            _mint(message.to, message.value);
+            // _mint(message.to, message.value);
+            IERC20(token).transferFrom(address(this), message.to, message.value);
         } else {
             revert("Unknown message type");
         }
@@ -165,7 +177,6 @@ contract SpokeToken is
         destinations = _destinations;
 
         emit ProtocolsConfigured(_sources, _destinations);
-
     }
 
 }
