@@ -1,5 +1,5 @@
 /// Module: spoke_token
-module spoke_token::foreign_spoke {
+module spoke_token::spoke_manager {
     use sui::math::{Self};
     use std::string::String;
     use sui::url::Url;
@@ -11,7 +11,7 @@ module spoke_token::foreign_spoke {
     use spoke_token::spoke_token_utils::{address_to_hex_string, address_from_hex_string};
     use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
     use spoke_token::cross_transfer_revert::{Self, XCrossTransferRevert};
-    use spoke_token::manager::{Self, Config as ManagerConfig};
+    // use spoke_token::manager::{Self, Config as ManagerConfig};
 
     use xcall::{main as xcall};
     use xcall::execute_ticket::{Self};
@@ -41,6 +41,10 @@ module spoke_token::foreign_spoke {
     const CROSS_TRANSFER: vector<u8> = b"xCrossTransfer";
     const CROSS_TRANSFER_REVERT: vector<u8> = b"xCrossTransferTevert";
 
+    public struct REGISTER_WITNESS has drop, store {}
+
+    public struct WitnessCarrier has key { id: UID, witness: REGISTER_WITNESS }
+
     public struct AdminCap has key{
         id: UID 
     }
@@ -55,16 +59,22 @@ module spoke_token::foreign_spoke {
         id: UID,
         version: u64,
         icon_token: String,
-        id_cap:IDCap,
-        xcall_manager_id: ID,
+        id_cap: IDCap,
         xcall_id: ID,
-        //balance_treasury_cap: TreasuryCap<T>
+        sources: vector<String>,
+        destinations: vector<String>
     }
 
     fun init(ctx: &mut TxContext){
         transfer::transfer(AdminCap{
             id: object::new(ctx),
         }, ctx.sender())
+    }    
+     
+    fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
+        let WitnessCarrier { id, witness } = carrier;
+        id.delete();
+        witness
     }
 
     /// Create new currency of type 'T'
@@ -77,7 +87,15 @@ module spoke_token::foreign_spoke {
         icon_url: Option<Url>,
         ctx: &mut TxContext
     ): (TreasuryCap<T>, CoinMetadata<T>){
-        coin::create_currency<T>(witness, decimals, symbol, name, description, icon_url, ctx)
+        coin::create_currency<T>(
+            witness, 
+            decimals, 
+            symbol,
+            name,
+            description,
+        icon_url, 
+            ctx
+            )
     }
 
     /// Mint a `SpokeToken` with a given `amount` using the `TreasuryCap`.
@@ -146,10 +164,40 @@ module spoke_token::foreign_spoke {
         transfer::transfer(token, ctx.sender())
     }
 
+    public fun set_protoco<T>(_: &mut AdminCap, config:&mut Config<T>, sources: vector<String>, destinations: vector<String>){
+        vector::append(&mut config.sources, sources);
+        vector::append(&mut config.destinations, destinations);
+    }
+
+    entry fun configure<T>(
+        _: &AdminCap,
+        storage: &Storage, 
+        witness_carrier: WitnessCarrier, 
+        version: u64,
+        icon_token: String, 
+        sources: vector<String>,
+        destinations: vector<String>,
+        xcall_id: ID,
+        ctx: &mut TxContext 
+    ){
+        let w = get_witness(witness_carrier);
+        let id_cap =   xcall::register_dapp(storage, w, ctx);
+        
+        transfer::share_object(Config<T> {
+            id: object::new(ctx),
+            version,
+            icon_token,
+            id_cap,
+            xcall_id,
+            sources,
+            destinations,
+        });
+    }  
+
     public fun cross_transfer<T>(
         config: &mut Config<T>,
         x_ctx:&mut Storage,
-        x_manager_conf: &ManagerConfig,
+        // x_manager_conf: &ManagerConfig,
         fee: Coin<SUI>,
         token: Coin<T>,
         to: String,
@@ -172,19 +220,17 @@ module spoke_token::foreign_spoke {
             message_data
         );
         let x_rollback  = cross_transfer_revert::wrap_cross_transfer_revert(sender, amount);
-
-        let (source, destination) = manager::get_protocals(x_manager_conf);
-
+        // let (source, destination) = manager::get_protocals(x_manager_conf);
         let x_encoded_msg = cross_transfer::encode(&x_message, CROSS_TRANSFER);
         let rollback = cross_transfer_revert::encode(&x_rollback, CROSS_TRANSFER_REVERT);
-        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, source, destination);
+        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, config.sources, config.destinations);
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
 
     public(package) fun execute_call<T>(
         config: &Config<T>,
         x_ctx:&mut Storage,
-        x_manager_conf: &ManagerConfig,
+        // x_manager_conf: &ManagerConfig,
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,
@@ -197,7 +243,7 @@ module spoke_token::foreign_spoke {
         let from = execute_ticket::from(&ticket);
         let protocols = execute_ticket::protocols(&ticket);
 
-        let verified = manager::verify_protocols(x_manager_conf, protocols);
+        let verified = verify_protocols(config, protocols);
         let method: vector<u8> = cross_transfer::get_method(&msg);
 
         if( verified && method == CROSS_TRANSFER && from == network_address::from_string(config.icon_token)){
@@ -205,7 +251,6 @@ module spoke_token::foreign_spoke {
             let string_to = cross_transfer::to(&message);
             let to  = network_address::addr(&network_address::from_string(string_to));
             let amount = translate_incoming_amount(cross_transfer::value(&message));
-            // TODO: mint here
             mint_and_transfer(cap, amount, address_from_hex_string(&to),ctx);
             xcall::execute_call_result(x_ctx, ticket, true, fee, ctx);
         }else {
@@ -213,7 +258,13 @@ module spoke_token::foreign_spoke {
         }
     }
 
-    entry fun execute_rollback<T>(config: &Config<T>, xcall: &mut Storage, sn: u128, ctx:&mut TxContext){
+    entry fun execute_rollback<T>(
+        config: &Config<T>, 
+        xcall: &mut Storage, 
+        cap: &mut TreasuryCap<T>,
+        sn: u128, 
+        ctx:&mut TxContext
+        ){
         validate_version(config);
         let ticket = xcall::execute_rollback(xcall, get_idcap(config), sn, ctx);
         let msg = rollback_ticket::rollback(&ticket);
@@ -226,8 +277,8 @@ module spoke_token::foreign_spoke {
         let message: XCrossTransferRevert = cross_transfer_revert::decode(&msg);
         let to = cross_transfer_revert::to(&message);
         let amount: u64 = cross_transfer_revert::value(&message);
-        // balanced_dollar::mint(get_treasury_cap_mut(config), to, amount,  ctx); TODO: how to solve this
-         xcall::execute_rollback_result(xcall,ticket,true)
+        mint_and_transfer(cap, amount, to, ctx);
+        xcall::execute_rollback_result(xcall,ticket,true)
     }
 
     entry fun execute_force_rollback<T>(config: &Config<T>, _: &AdminCap,  xcall:&mut Storage, fee:Coin<SUI>, request_id:u128, data:vector<u8>, ctx:&mut TxContext){
@@ -265,11 +316,6 @@ module spoke_token::foreign_spoke {
         &config.id_cap
     }
 
-    public fun get_xcall_manager_id<T>(config: &Config<T>): ID{
-        validate_version<T>(config);
-        config.xcall_manager_id
-    }
-
     public fun get_xcall_id<T>(config: &Config<T>): ID{
         validate_version<T>(config);
         config.xcall_id
@@ -277,5 +323,30 @@ module spoke_token::foreign_spoke {
 
     public fun get_version<T>(config: &Config<T>): u64{
         config.version
+    }
+
+
+    public fun verify_protocols<T>(config: &Config<T>, protocols: vector<String>): bool{
+        validate_version(config);
+        verify_protocols_unordered(config.sources, protocols)
+    }
+
+    fun verify_protocols_unordered(array1: vector<String>, array2: vector<String>): bool{
+        let len  =  vector::length(&array1);
+        if(len != vector::length(&array2)){
+            false
+        } else{
+            let mut matched = true;
+            let mut i = 0;
+            while(i < len){
+                let protocol = vector::borrow(&array2, i);
+                if (!vector::contains(&array1, protocol)){
+                    matched = false;
+                    break
+                };
+                i = i +1;
+            };
+            matched
+        }
     }
 }

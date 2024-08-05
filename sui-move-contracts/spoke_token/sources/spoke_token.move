@@ -1,9 +1,8 @@
 /// Module: spoke_token
-module spoke_token::home_spoke  {
+module spoke_token::spoke_token {
     use sui::math::{Self};
     use std::string::String;
-    use sui::url::Url;
-    use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
+    use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
@@ -13,8 +12,6 @@ module spoke_token::home_spoke  {
     use spoke_token::spoke_token_utils::{address_to_hex_string, address_from_hex_string};
     use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
     use spoke_token::cross_transfer_revert::{Self, XCrossTransferRevert};
-    use spoke_token::cross_transfer_revert::{Self};
-    use spoke_token::manager::{Self, Config as ManagerConfig};
 
     use xcall::{main as xcall};
     use xcall::execute_ticket::{Self};
@@ -27,10 +24,6 @@ module spoke_token::home_spoke  {
     // === Errors ===
 
     const EAmountLessThanZero: u64 = 1;
-
-    const EBalanceTooLow: u64 = 2;
-
-    const ENotZero: u64 = 3;
 
     const EWrongVersion: u64 = 4;
 
@@ -66,10 +59,10 @@ module spoke_token::home_spoke  {
         id: UID,
         version: u64,
         icon_token: String,
-        id_cap:IDCap,
-        xcall_manager_id: ID,
+        id_cap: IDCap,
         xcall_id: ID,
-        // balance_treasury_cap: TreasuryCap<T>
+        sources: vector<String>,
+        destinations: vector<String>
     }
 
     fun init(ctx: &mut TxContext){
@@ -77,28 +70,6 @@ module spoke_token::home_spoke  {
             id: object::new(ctx),
         }, ctx.sender())
     }
-
-    /// Create new currency of type 'T'
-    public fun create_spoke_currency<T: drop>(
-        witness: T,
-        decimals: u8,
-        symbol: vector<u8>,
-        name: vector<u8>,
-        description: vector<u8>,
-        icon_url: Option<Url>,
-        ctx: &mut TxContext
-    ): (TreasuryCap<T>, CoinMetadata<T>){
-        coin::create_currency<T>(witness, decimals, symbol, name, description, icon_url, ctx)
-    }
-    
-    public fun create_treasury<T>(ctx: &mut TxContext){
-        transfer::share_object(TokenTreasury{
-            id: object::new(ctx),
-            balance: balance::zero<T>(),
-            owner: vec_map::empty(),
-        })
-    }
-
     // ====== Entrypoints =======
 
 
@@ -106,7 +77,7 @@ module spoke_token::home_spoke  {
     public fun cross_transfer<T>(
         config: &mut Config<T>,
         x_ctx:&mut Storage,
-        x_manager_conf: &ManagerConfig,
+        // x_manager_conf: &ManagerConfig,
         fee: Coin<SUI>,
         token: Coin<T>,
         to: String,
@@ -133,18 +104,18 @@ module spoke_token::home_spoke  {
         );
         let x_rollback  = cross_transfer_revert::wrap_cross_transfer_revert(sender, amount);
 
-        let (source, destination) = manager::get_protocals(x_manager_conf);
+        // let (source, destination) = manager::get_protocals(x_manager_conf);
 
         let x_encoded_msg = cross_transfer::encode(&x_message, CROSS_TRANSFER);
         let rollback = cross_transfer_revert::encode(&x_rollback, CROSS_TRANSFER_REVERT);
-        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, source, destination);
+        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, config.sources, config.destinations);
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
 
     public(package) fun execute_call<T>(
         config: &Config<T>,
         x_ctx:&mut Storage,
-        x_manager_conf: &ManagerConfig,
+        // x_manager_conf: &ManagerConfig,
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,
@@ -157,7 +128,7 @@ module spoke_token::home_spoke  {
         let from = execute_ticket::from(&ticket);
         let protocols = execute_ticket::protocols(&ticket);
 
-        let verified = manager::verify_protocols(x_manager_conf, protocols);
+        let verified = verify_protocols(config, protocols);
         let method: vector<u8> = cross_transfer::get_method(&msg);
 
         if( verified && method == CROSS_TRANSFER && from == network_address::from_string(config.icon_token)){
@@ -227,10 +198,10 @@ module spoke_token::home_spoke  {
         &config.id_cap
     }
 
-    public fun get_xcall_manager_id<T>(config: &Config<T>): ID{
-        validate_version<T>(config);
-        config.xcall_manager_id
-    }
+    // public fun get_xcall_manager_id<T>(config: &Config<T>): ID{
+    //     validate_version<T>(config);
+    //     config.xcall_manager_id
+    // }
 
     public fun get_xcall_id<T>(config: &Config<T>): ID{
         validate_version<T>(config);
@@ -239,5 +210,29 @@ module spoke_token::home_spoke  {
 
     public fun get_version<T>(config: &Config<T>): u64{
         config.version
+    }
+
+        public fun verify_protocols<T>(config: &Config<T>, protocols: vector<String>): bool{
+        validate_version(config);
+        verify_protocols_unordered(config.sources, protocols)
+    }
+
+    fun verify_protocols_unordered(array1: vector<String>, array2: vector<String>): bool{
+        let len  =  vector::length(&array1);
+        if(len != vector::length(&array2)){
+            false
+        } else{
+            let mut matched = true;
+            let mut i = 0;
+            while(i < len){
+                let protocol = vector::borrow(&array2, i);
+                if (!vector::contains(&array1, protocol)){
+                    matched = false;
+                    break
+                };
+                i = i +1;
+            };
+            matched
+        }
     }
 }
