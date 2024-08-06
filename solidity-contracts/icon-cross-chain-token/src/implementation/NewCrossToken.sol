@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import "../tokens/SpokeToken.sol";
 
-contract AbcToken is SpokeToken  {
+contract NewCrossToken is SpokeToken  {
     constructor() {
         _disableInitializers();
     }

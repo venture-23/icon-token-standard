@@ -21,7 +21,7 @@ import "./RLPEncodeStruct.sol";
 import "./RLPDecodeStruct.sol";
 import "../utils/SpokeUtils.sol";
 
-contract HomeSpokeToken is
+contract SpokeTokenManager is
     ERC20Upgradeable,
     ICallServiceReceiver,
     UUPSUpgradeable,

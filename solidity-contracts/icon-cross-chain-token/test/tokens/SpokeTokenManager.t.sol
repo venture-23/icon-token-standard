@@ -5,11 +5,11 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "../../library/btp/interfaces/ICallService.sol";
-import "../../src/mock/PlayToken.sol";
-import "../../src/tokens/HomeSpokeToken.sol";
+import "../../src/mock/DemoToken.sol";
+import "../../src/tokens/SpokeTokenManager.sol";
 import "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract HomeSpokeTokenTest is Test {
+contract SpokeTokenManagerTest is Test {
     using Strings for string;
     using NetworkAddress for string;
     using ParseAddress for address;
@@ -23,14 +23,14 @@ contract HomeSpokeTokenTest is Test {
     event LogData(address sender, uint value, bytes data);
 
     PlayToken token;
-    HomeSpokeToken homeSpokeToken;
+    SpokeTokenManager spokeTokenManager;
     ICallService public xCall;
     string public constant nid = "0x1.eth";
     string public constant ICON_BNUSD = "0x1.icon/cx1";
     string[] defaultSources = ["0x05", "0x06"];
     string[] defaultDestinations = ["cx2", "cx3"];
     string[] wrongDestinations = ["cx4", "cx5", "cx6"];
-    address public homeSpokeTokenAddress;
+    address public spokeTokenManagerAddress;
 
     function setUp() public {
         xCall = ICallService(address(0x01));
@@ -41,15 +41,15 @@ contract HomeSpokeTokenTest is Test {
         );
 
         token = new PlayToken(1000);
-        homeSpokeToken = new HomeSpokeToken();
-        homeSpokeTokenAddress = address(homeSpokeToken);
+        spokeTokenManager = new SpokeTokenManager();
+        spokeTokenManagerAddress = address(spokeTokenManager);
         vm.prank(owner);
-        homeSpokeToken = HomeSpokeToken(
+        spokeTokenManager = SpokeTokenManager(
             address(
                 new ERC1967Proxy(
-                    homeSpokeTokenAddress,
+                    spokeTokenManagerAddress,
                     abi.encodeWithSelector(
-                        homeSpokeToken.initialize.selector,
+                        spokeTokenManager.initialize.selector,
                         address(token),
                         address(xCall),
                         ICON_BNUSD,
@@ -59,8 +59,8 @@ contract HomeSpokeTokenTest is Test {
                 )
             )
         );
-        console.log("HomeSpokeToken (Implementation) address:", homeSpokeTokenAddress);
-        console.log("HomeSpokeToken (Proxy) address:", address(homeSpokeToken));
+        console.log("SpokeTokenManager (Implementation) address:", spokeTokenManagerAddress);
+        console.log("SpokeTokenManager (Proxy) address:", address(spokeTokenManager));
     }
 
     function testCrossTransferWithData() public {
@@ -76,12 +76,12 @@ contract HomeSpokeTokenTest is Test {
 
         // checking balance 
         assertEq(token.balanceOf(user), amount);
-        assertEq(token.balanceOf(address(homeSpokeToken)), 0);
+        assertEq(token.balanceOf(address(spokeTokenManager)), 0);
 
         // Approve the proxy address
         vm.prank(user);
-        token.approve(address(homeSpokeToken), amount); 
-        assertEq(token.allowance(user, address(homeSpokeToken)), amount);
+        token.approve(address(spokeTokenManager), amount); 
+        assertEq(token.allowance(user, address(spokeTokenManager)), amount);
 
 
         Messages.XCrossTransfer memory xcallMessage = Messages.XCrossTransfer(
@@ -117,10 +117,10 @@ contract HomeSpokeTokenTest is Test {
 
         // Act
         vm.prank(user);
-        homeSpokeToken.crossTransfer{value: fee}(to, amount, data);
+        spokeTokenManager.crossTransfer{value: fee}(to, amount, data);
 
         // Assert
         assertEq(token.balanceOf(user), 0);
-        assertEq(token.balanceOf(address(homeSpokeToken)), amount);
+        assertEq(token.balanceOf(address(spokeTokenManager)), amount);
     }
 }

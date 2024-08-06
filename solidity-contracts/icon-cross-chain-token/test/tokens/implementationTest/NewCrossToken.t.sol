@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import "../../../src/implementation/AbcToken.sol";
+import "../../../src/implementation/NewCrossToken.sol";
 import "../../../src/tokens/Messages.sol";
 
 import "../../../library/btp/interfaces/ICallService.sol";
@@ -14,7 +14,7 @@ import "../../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy
 
 
 
-contract AbcTokenTest is Test {
+contract NewCrossTokenTest is Test {
     using Strings for string;
     using NetworkAddress for string;
     using ParseAddress for address;
@@ -26,15 +26,15 @@ contract AbcTokenTest is Test {
     address public owner = address(0x2345);
 
 
-    AbcToken public abcToken;
+    NewCrossToken public newCrossToken;
     IXCallManager public xCallManager;
     ICallService public xCall;
     string public constant nid = "0x1.eth";
     string public constant ICON_BNUSD = "0x1.icon/cx1";
     string[] defaultSources = ["0x05", "0x06"];
     string[] defaultDestinations = ["cx2", "cx3"];
-    string public constant name = "ABCTOKEN";
-    string public constant symbol = "AT";
+    string public constant name = "NewCrossToken";
+    string public constant symbol = "NCT";
     string[] wrongDestinations= ["cx4", "cx5", "cx6"];
 
     function setUp() public {
@@ -67,15 +67,15 @@ contract AbcTokenTest is Test {
             abi.encode(true)
         );
 
-        abcToken = new AbcToken();
-        address abcTokenAddress = address(abcToken);
+        newCrossToken = new NewCrossToken();
+        address newCrossTokenAddress = address(newCrossToken);
         vm.prank(owner);
-        abcToken = AbcToken(
+        newCrossToken = NewCrossToken(
             address(
                 new ERC1967Proxy(
-                    abcTokenAddress,
+                    newCrossTokenAddress,
                     abi.encodeWithSelector(
-                        abcToken.initialize.selector,
+                        newCrossToken.initialize.selector,
                         name, 
                         symbol,
                         address(xCall),
@@ -128,10 +128,10 @@ contract AbcTokenTest is Test {
         );
 
         // Act
-        abcToken.crossTransfer{value: fee}(to, amount);
+        newCrossToken.crossTransfer{value: fee}(to, amount);
 
         // Assert
-        assertEq(abcToken.balanceOf(user), 0);
+        assertEq(newCrossToken.balanceOf(user), 0);
     }
 
     function testCrossTransferWithData() public {
@@ -175,10 +175,10 @@ contract AbcTokenTest is Test {
         );
 
         // Act
-        abcToken.crossTransfer{value: fee}(to, amount, data);
+        newCrossToken.crossTransfer{value: fee}(to, amount, data);
 
         // Assert
-        assertEq(abcToken.balanceOf(user), 0);
+        assertEq(newCrossToken.balanceOf(user), 0);
     }
 
     function testhandleCallMessage_OnlyXCall() public {
@@ -189,7 +189,7 @@ contract AbcTokenTest is Test {
         vm.expectRevert("onlyCallService");
 
         // Act
-        abcToken.handleCallMessage("", "", defaultSources);
+        newCrossToken.handleCallMessage("", "", defaultSources);
     }
 
     function testhandleCallMessage_InvalidProtocol() public {
@@ -200,7 +200,7 @@ contract AbcTokenTest is Test {
         vm.expectRevert("Protocol Mismatch");
 
         // Act
-        abcToken.handleCallMessage("", "", wrongDestinations);
+        newCrossToken.handleCallMessage("", "", wrongDestinations);
     }
 
     function testReceiveCrossTransfer_onlyICONBnUSD() public {
@@ -219,7 +219,7 @@ contract AbcTokenTest is Test {
         vm.expectRevert("onlyiconTokenAddress");
 
         // Act
-        abcToken.handleCallMessage(
+        newCrossToken.handleCallMessage(
             "Not ICON bnUSD",
             message.encodeCrossTransfer(),
             defaultSources
@@ -235,14 +235,14 @@ contract AbcTokenTest is Test {
             .XCrossTransferRevert(user, amount);
 
         // Act
-        abcToken.handleCallMessage(
+        newCrossToken.handleCallMessage(
             nid.networkAddress(address(xCall).toString()),
             message.encodeCrossTransferRevert(),
             defaultSources
         );
 
         // Assert
-        assertEq(abcToken.balanceOf(user), amount);
+        assertEq(newCrossToken.balanceOf(user), amount);
     }
 
     function testReceiveCrossTransferRevert_onlyXCall() public {
@@ -257,7 +257,7 @@ contract AbcTokenTest is Test {
         vm.expectRevert("onlyCallService");
 
         // Act
-        abcToken.handleCallMessage(
+        newCrossToken.handleCallMessage(
             ICON_BNUSD,
             message.encodeCrossTransferRevert(),
             defaultSources
@@ -273,7 +273,7 @@ contract AbcTokenTest is Test {
             ""
         );
 
-        abcToken.handleCallMessage(
+        newCrossToken.handleCallMessage(
             ICON_BNUSD,
             message.encodeCrossTransfer(),
             defaultSources
@@ -282,7 +282,7 @@ contract AbcTokenTest is Test {
 
     function testUpgrade_notOwner() public {
         // Arrange
-        address abcTokenAddress = address(new SpokeToken());
+        address newCrossTokenAddress = address(new SpokeToken());
         vm.prank(user);
 
         // Assert
@@ -292,19 +292,19 @@ contract AbcTokenTest is Test {
                 user
             )
         );
-        abcToken.upgradeToAndCall(abcTokenAddress, "");
+        newCrossToken.upgradeToAndCall(newCrossTokenAddress, "");
     }
 
     function testUpgrade() public {
         // Arrange
-        address abcTokenAddress = address(new SpokeToken());
+        address newCrossTokenAddress = address(new SpokeToken());
         vm.prank(owner);
 
         // Act
-        abcToken.upgradeToAndCall(abcTokenAddress, "");
+        newCrossToken.upgradeToAndCall(newCrossTokenAddress, "");
 
         // Assert
-        assertEq(abcTokenAddress, abcToken.getImplementation());
+        assertEq(newCrossTokenAddress, newCrossToken.getImplementation());
     }
    
 }
