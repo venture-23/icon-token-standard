@@ -2,14 +2,10 @@ package icon.cross.chain.token.lib.tokens;
 
 import foundation.icon.xcall.NetworkAddress;
 import icon.cross.chain.token.lib.interfaces.tokens.HubToken;
-import icon.cross.chain.token.lib.utils.BalancedAddressManager;
 import icon.cross.chain.token.lib.utils.HubTokenMessages;
 import icon.cross.chain.token.lib.utils.HubTokenXCall;
 import icon.cross.chain.token.lib.utils.XCallUtils;
-import score.Address;
-import score.ArrayDB;
-import score.Context;
-import score.DictDB;
+import score.*;
 import score.annotation.EventLog;
 import score.annotation.External;
 import score.annotation.Optional;
@@ -34,8 +30,8 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     // net -> int
     protected final DictDB<String, BigInteger> spokeLimits = Context.newDictDB(SPOKE_LIMITS, BigInteger.class);
 
-    public HubTokenImpl(String _nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
-        super(_nid, _tokenName, _symbolName, _decimals);
+    public HubTokenImpl(Address _xCall, String[] sources, String[] destinations, String _nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
+        super(_xCall, sources, destinations, _nid, _tokenName, _symbolName, _decimals);
     }
 
     @EventLog(indexed = 1)
@@ -100,7 +96,7 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     }
 
     public void xCrossTransferRevert(String from, String _to, BigInteger _value) {
-        Context.require(from.equals(new NetworkAddress(NATIVE_NID, BalancedAddressManager.getXCall()).toString()));
+        Context.require(from.equals(new NetworkAddress(NATIVE_NID, xCall.get()).toString()));
         NetworkAddress to = NetworkAddress.valueOf(_to);
         NetworkAddress spokeContract = spokeContracts.get(to.net());
         _transferToICON(spokeContract, to, _value);
@@ -182,7 +178,7 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
         byte[] rollback = HubTokenMessages.xCrossTransferRevert(to.toString(), value);
         byte[] callData = HubTokenMessages.xCrossTransfer(from.toString(), to.toString(), value, data);
 
-        XCallUtils.sendCall(fee, spokeAddress, callData, rollback);
+        XCallUtils.sendCall(fee, xCall.get(), spokeAddress, callData, rollback, protocols.get(spokeAddress.net()));
 
         XTransfer(from.toString(), to.toString(), value, data);
     }
@@ -190,9 +186,8 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     @Override
     @External
     public void handleCallMessage(String _from, byte[] _data, @Optional String[] _protocols) {
-        checkStatus();
-        only(BalancedAddressManager.getXCall());
-        XCallUtils.verifyXCallProtocols(_from, _protocols);
+        only(xCall.get());
+        verifyProtocols(_from, _protocols);
         HubTokenXCall.process(this, _from, _data);
     }
 }

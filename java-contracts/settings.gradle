@@ -1,3 +1,6 @@
 rootProject.name = 'java-contracts'
 include 'CrossChainToken'
 
+include 'NewCrossTokenDeploy'
+project(':NewCrossTokenDeploy').projectDir = file("token-examples/NewCrossTokenDeploy")
+

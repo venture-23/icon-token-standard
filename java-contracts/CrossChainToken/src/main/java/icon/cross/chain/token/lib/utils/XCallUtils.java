@@ -16,39 +16,28 @@
 
 package icon.cross.chain.token.lib.utils;
 
+import score.Address;
 import score.Context;
 import score.VarDB;
 import foundation.icon.xcall.NetworkAddress;
-import icon.cross.chain.token.lib.utils.ProtocolConfig;
 
 import java.math.BigInteger;
-import java.util.Map;
+
 public class XCallUtils {
     private static final String TAG = "XCallUtils";
     private static final VarDB<String> nativeNid = Context.newVarDB(TAG + "NativeNetworkId", String.class);
 
-    public static String getNativeNid() {
-        String nid = nativeNid.get();
-        if (nid == null) {
-            nid = Context.call(String.class, BalancedAddressManager.getXCall(), "getNetworkId");
+    public static void sendCall(BigInteger fee, Address xCall, NetworkAddress to, byte[] data, byte[] rollback, ProtocolConfig protocols) {
+        Context.call(fee, xCall, "sendCallMessage", to.toString(), data, rollback, protocols.sources, protocols.destinations);
+    }
+
+
+    public static boolean hasSource(String source, String[] protocols) {
+        for (String protocol : protocols) {
+            if (protocol.equals(source)) {
+                return true;
+            }
         }
-
-        return nid;
+        return false;
     }
-
-    public static void verifyXCallProtocols(String _from, String[] protocols) {
-        NetworkAddress from = NetworkAddress.valueOf(_from);
-        Context.call(BalancedAddressManager.getXCallManager(), "verifyProtocols", from.net(), protocols);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Map<String, String[]> getProtocols(String nid) {
-        return (Map<String, String[]>) Context.call(BalancedAddressManager.getXCallManager(), "getProtocols", nid);
-    }
-
-    public static void sendCall(BigInteger fee, NetworkAddress to, byte[] data, byte[] rollback) {
-        Map<String, String[]> protocols = getProtocols(to.net());
-        Context.call(fee, BalancedAddressManager.getXCall(), "sendCallMessage", to.toString(), data, rollback, protocols.get(ProtocolConfig.sourcesKey), protocols.get(ProtocolConfig.destinationsKey));
-    }
-
 }

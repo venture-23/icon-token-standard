@@ -13,9 +13,9 @@ module spoke_token::spoke_token_utils {
     public fun address_from_hex_string(str: &String): address {
         let mut modified_str = str;
         if(string::length(str) == 66 ){
-            modified_str = &str.sub_string(2, 66);
+            modified_str = &str.substring(2, 66);
         };
-        let bytes = modified_str.bytes();
+        let bytes = modified_str.as_bytes();
         let hex_bytes = hex::decode(*bytes);
         bcs::peel_address(&mut bcs::new(hex_bytes))
     }
