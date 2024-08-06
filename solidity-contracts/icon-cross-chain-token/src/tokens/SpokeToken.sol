@@ -37,7 +37,6 @@ contract SpokeToken is
     string public xCallNetworkAddress;
     string public nid;
     string public iconTokenAddress;
-    // address public xCallManager;
     string[] public sources;
     string[] public destinations;
 
@@ -114,9 +113,6 @@ contract SpokeToken is
 
         Messages.XCrossTransferRevert memory rollback = Messages
             .XCrossTransferRevert(msg.sender, value);
-
-        // IXCallManager.Protocols memory protocols = IXCallManager(xCallManager)
-        //     .getProtocols();
 
         ICallService(xCall).sendCallMessage{value: msg.value}(
             iconTokenAddress,

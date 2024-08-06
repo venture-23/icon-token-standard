@@ -41,7 +41,6 @@ contract HomeSpokeToken is
     string public xCallNetworkAddress;
     string public nid;
     string public iconTokenAddress;
-    // address public xCallManager;
     string[] public sources;
     string[] public destinations;
 
@@ -55,8 +54,6 @@ contract HomeSpokeToken is
     }
 
     function initialize(
-        // string calldata name,
-        // string calldata symbol,
         address _token,
         address _xCall,
         string memory _iconTokenAddress,
@@ -74,7 +71,6 @@ contract HomeSpokeToken is
         iconTokenAddress = _iconTokenAddress;
         sources = _source;
         destinations = _destinatons;
-        // __ERC20_init(name, symbol);
         __Ownable_init(msg.sender);
     }
 
@@ -109,7 +105,7 @@ contract HomeSpokeToken is
         bytes memory data
     ) internal {
         require(value > 0, "Amount less than minimum amount");
-        // _burn(msg.sender, value);
+        // transferred token from user address to contract 
         IERC20(token).transferFrom(msg.sender, address(this), value);
         string memory from = nid.networkAddress(msg.sender.toString());
         // Validate address
@@ -123,9 +119,6 @@ contract HomeSpokeToken is
 
         Messages.XCrossTransferRevert memory rollback = Messages
             .XCrossTransferRevert(msg.sender, value);
-
-        // IXCallManager.Protocols memory protocols = IXCallManager(xCallManager)
-        //     .getProtocols();
 
         ICallService(xCall).sendCallMessage{value: msg.value}(
             iconTokenAddress,
@@ -148,13 +141,12 @@ contract HomeSpokeToken is
             require(from.compareTo(iconTokenAddress), "onlyiconTokenAddress");
             Messages.XCrossTransfer memory message = data.decodeCrossTransfer();
             (, string memory to) = message.to.parseNetworkAddress();
-            // _mint(to.parseAddress("Invalid account"), message.value);
+            // transferred from contract to user 
             IERC20(token).transferFrom(address(this), to.parseAddress("Invalid account"), message.value);
         } else if (method.compareTo(Messages.CROSS_TRANSFER_REVERT)) {
             require(from.compareTo(xCallNetworkAddress), "onlyCallService");
             Messages.XCrossTransferRevert memory message = data
                 .decodeCrossTransferRevert();
-            // _mint(message.to, message.value);
             IERC20(token).transferFrom(address(this), message.to, message.value);
         } else {
             revert("Unknown message type");
