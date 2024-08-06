@@ -38,6 +38,7 @@ module spoke_token::spoke_token {
     const CURRENT_VERSION: u64 = 1;
 
     const CROSS_TRANSFER: vector<u8> = b"xCrossTransfer";
+    
     const CROSS_TRANSFER_REVERT: vector<u8> = b"xCrossTransferTevert";
 
     public struct REGISTER_WITNESS has drop, store {}
@@ -163,7 +164,7 @@ module spoke_token::spoke_token {
         transfer::transfer(token, ctx.sender())
     }
 
-    public fun set_protoco(_: &mut AdminCap, config:&mut Config, sources: vector<String>, destinations: vector<String>){
+    public fun set_protocol(_: &mut AdminCap, config:&mut Config, sources: vector<String>, destinations: vector<String>){
         vector::append(&mut config.sources, sources);
         vector::append(&mut config.destinations, destinations);
     }
@@ -227,7 +228,6 @@ module spoke_token::spoke_token {
     public(package) fun execute_call<T>(
         config: &Config,
         x_ctx:&mut Storage,
-        // x_manager_conf: &ManagerConfig,
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,

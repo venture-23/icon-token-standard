@@ -39,6 +39,7 @@ module spoke_token::spoke_manager {
     const CURRENT_VERSION: u64 = 1;
 
     const CROSS_TRANSFER: vector<u8> = b"xCrossTransfer";
+    
     const CROSS_TRANSFER_REVERT: vector<u8> = b"xCrossTransferTevert";
 
     public struct AdminCap has key{
@@ -218,11 +219,6 @@ module spoke_token::spoke_manager {
         validate_version(config);
         &config.id_cap
     }
-
-    // public fun get_xcall_manager_id<T>(config: &Config): ID{
-    //     validate_version<T>(config);
-    //     config.xcall_manager_id
-    // }
 
     public fun get_xcall_id(config: &Config): ID{
         validate_version(config);
