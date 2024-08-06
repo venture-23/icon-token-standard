@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "../../library/btp/interfaces/ICallService.sol";
-import "../../src/mock/DemoToken.sol";
+import "../../src/mock/PlayToken.sol";
 import "../../src/tokens/SpokeTokenManager.sol";
 import "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 

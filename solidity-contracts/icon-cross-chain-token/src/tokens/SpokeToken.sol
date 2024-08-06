@@ -18,7 +18,6 @@ import "./Messages.sol";
 import "./RLPEncodeStruct.sol";
 import "./RLPDecodeStruct.sol";
 import "../utils/SpokeUtils.sol";
-import "../utils/SpokeUtils.sol";
 
 contract SpokeToken is
     ERC20Upgradeable,
@@ -54,11 +53,8 @@ contract SpokeToken is
         string memory _iconTokenAddress,
         string[] memory _source,
         string[] memory _destinatons
-        string[] memory _source,
-        string[] memory _destinatons
     ) public initializer {
         require(
-            _xCall != address(0),
             _xCall != address(0),
             "Zero address not allowed"
         );
@@ -66,8 +62,6 @@ contract SpokeToken is
         xCallNetworkAddress = ICallService(xCall).getNetworkAddress();
         nid = xCallNetworkAddress.nid();
         iconTokenAddress = _iconTokenAddress;
-        sources = _source;
-        destinations = _destinatons;
         sources = _source;
         destinations = _destinatons;
         __ERC20_init(name, symbol);
@@ -126,8 +120,6 @@ contract SpokeToken is
             rollback.encodeCrossTransferRevert(),
             sources,
             destinations
-            sources,
-            destinations
         );
     }
 
@@ -136,7 +128,6 @@ contract SpokeToken is
         bytes calldata data,
         string[] calldata protocols
     ) external onlyCallService {
-        require(SpokeUtils.verifyProtocolsUnordered(sources, protocols), "Protocol Mismatch");
         require(SpokeUtils.verifyProtocolsUnordered(sources, protocols), "Protocol Mismatch");
         string memory method = data.getMethod();
         if (method.compareTo(Messages.CROSS_TRANSFER)) {
@@ -153,26 +144,6 @@ contract SpokeToken is
             revert("Unknown message type");
         }
     }
-
-    function setProtocols(
-        string[] memory _sources,
-        string[] memory _destinations
-    ) external onlyOwner {
-        require(
-            !SpokeUtils.hasDuplicates(_sources),
-            "Source protcols cannot contain duplicates"
-        );
-        require(
-            !SpokeUtils.hasDuplicates(_destinations),
-            "Destination protcols cannot contain duplicates"
-        );
-        sources = _sources;
-        destinations = _destinations;
-
-        emit ProtocolsConfigured(_sources, _destinations);
-
-    }
-
 
     function setProtocols(
         string[] memory _sources,
