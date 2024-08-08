@@ -16,8 +16,6 @@ dependencies {
     implementation 'foundation.icon:javaee-scorex:0.5.2'
     implementation 'foundation.icon:icon-sdk:2.1.0'
 
-    implementation 'com.github.sink772:minimal-json:0.9.7'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
     implementation project(':CrossChainToken')
 
     annotationProcessor 'foundation.icon:javaee-score-client:0.9.0'
@@ -31,6 +29,26 @@ optimizedJar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+
+deployJar {
+    endpoints {
+        lisbon {
+            uri = 'https://lisbon.net.solidwallet.io/api/v3'
+            nid = 0x2
+            to = 'cx38cfd5689c7951606d049c04b0a4a549c2910b6b'
+        }
+    }
+    keystore = rootProject.hasProperty('keystoreName') ? "$keystoreName" : ''
+    password = rootProject.hasProperty('keystorePass') ? "$keystorePass" : ''
+    parameters {
+        arg("_xCall", "cx15a339fa60bd86225050b22ea8cd4a9d7cd8bb83")
+        arg("_nid", "0x2.icon")
+        arg("_tokenName", "Cross Chain Demo Token")
+        arg("_symbolName", "CDM")
+        arg("_decimals", "18")
     }
 }
 
