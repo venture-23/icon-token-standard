@@ -30,8 +30,8 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     // net -> int
     protected final DictDB<String, BigInteger> spokeLimits = Context.newDictDB(SPOKE_LIMITS, BigInteger.class);
 
-    public HubTokenImpl(Address _xCall, String[] sources, String[] destinations, String _nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
-        super(_xCall, sources, destinations, _nid, _tokenName, _symbolName, _decimals);
+    public HubTokenImpl(Address _xCall, String _nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
+        super(_xCall, _nid, _tokenName, _symbolName, _decimals);
     }
 
     @EventLog(indexed = 1)

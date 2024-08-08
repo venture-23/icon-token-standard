@@ -40,10 +40,8 @@ public class SpokeTokenImpl implements SpokeToken {
     DictDB<String, ProtocolConfig> protocols = Context.newDictDB(PROTOCOLS, ProtocolConfig.class);
 
 
-    public SpokeTokenImpl(Address _xCall, String[] sources, String[] destinations, String nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
+    public SpokeTokenImpl(Address _xCall, String nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
         xCall.set(_xCall);
-        ProtocolConfig cfg = new ProtocolConfig(sources, destinations);
-        protocols.set(nid, cfg);
         NATIVE_NID = nid;
         if (this.name.get() == null) {
             _decimals = _decimals == null ? BigInteger.valueOf(18L) : _decimals;
