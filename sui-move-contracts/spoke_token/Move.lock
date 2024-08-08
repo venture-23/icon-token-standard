@@ -2,7 +2,7 @@
 
 [move]
 version = 2
-manifest_digest = "03807E431903A397E4DE8110A03766B2D921A8B29D8ECD6C5514CAFFCB694780"
+manifest_digest = "86D1E75DB1AED6DF81FA3C7F4E59500DC12FBB981012FF4E6E3008405C8F8870"
 deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
 dependencies = [
   { name = "Sui" },
@@ -23,7 +23,7 @@ dependencies = [
 
 [[move.package]]
 name = "sui_rlp"
-source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-contracts", subdir = "contracts/sui/libs/sui_rlp" }
+source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-testnet", subdir = "contracts/sui/libs/sui_rlp" }
 
 dependencies = [
   { name = "Sui" },
@@ -31,7 +31,7 @@ dependencies = [
 
 [[move.package]]
 name = "xcall"
-source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-contracts", subdir = "contracts/sui/xcall" }
+source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-testnet", subdir = "contracts/sui/xcall" }
 
 dependencies = [
   { name = "Sui" },
