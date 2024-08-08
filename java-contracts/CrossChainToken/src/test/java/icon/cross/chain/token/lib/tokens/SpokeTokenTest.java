@@ -48,9 +48,9 @@ public class SpokeTokenTest extends TestBase {
 
 
     public static class SpokeTokenTester extends SpokeTokenImpl {
-        public SpokeTokenTester(Address _xCall, String[] _sources, String[] _destinations, String _nid,
+        public SpokeTokenTester(Address _xCall, String _nid,
                                 String _tokenName, String _symbolName, BigInteger _decimals, BigInteger _initialSupply) {
-            super(_xCall, _sources, _destinations, _nid, _tokenName, _symbolName, _decimals);
+            super(_xCall, _nid, _tokenName, _symbolName, _decimals);
             // mint the initial token supply here
             mint(new NetworkAddress(_nid, Context.getCaller()), _initialSupply);
         }
@@ -66,7 +66,7 @@ public class SpokeTokenTest extends TestBase {
     public void setup() throws Exception {
         xCall = new MockContract<>(XCallScoreInterface.class, sm, owner);
         tokenScore = sm.deploy(owner, SpokeTokenTester.class,
-                xCall.getAddress(), sources, destinations, ICON_NID, name, symbol, decimals, totalSupply);
+                xCall.getAddress(), ICON_NID, name, symbol, decimals, totalSupply);
 
         tokenSpy = (SpokeTokenTester) spy(tokenScore.getInstance());
         tokenScore.setInstance(tokenSpy);

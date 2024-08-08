@@ -52,9 +52,9 @@ class HubTokenTest extends TestBase {
 
 
     public static class HubTokenTester extends HubTokenImpl {
-        public HubTokenTester(Address _xCall, String[] _sources, String[] _destinations, String _nid,
+        public HubTokenTester(Address _xCall, String _nid,
                               String _tokenName, String _symbolName, BigInteger _decimals, BigInteger _initialSupply) {
-            super(_xCall, _sources, _destinations, _nid, _tokenName, _symbolName, _decimals);
+            super(_xCall, _nid, _tokenName, _symbolName, _decimals);
 
             // mint the initial token supply here
             mint(new NetworkAddress(_nid, Context.getCaller()), _initialSupply);
@@ -65,12 +65,16 @@ class HubTokenTest extends TestBase {
     public void setup() throws Exception {
         xCall = new MockContract<>(XCallScoreInterface.class, sm, owner);
         tokenScore = sm.deploy(owner, HubTokenTester.class,
-                xCall.getAddress(), sources, destinations, ICON_NID, name, symbol, decimals, totalSupply);
+                xCall.getAddress(), ICON_NID, name, symbol, decimals, totalSupply);
         tokenSpy = (HubTokenTester) spy(tokenScore.getInstance());
         tokenScore.setInstance(tokenSpy);
         receiverContract = new MockContract<>(XTokenReceiverScoreInterface.class, sm, owner);
         tokenScore.invoke(owner, "addChain", ethereumSpokeAddress.toString(), baseLimit);
         tokenScore.invoke(owner, "addChain", bscSpokeAddress.toString(), baseLimit);
+
+        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
+        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
+
     }
 
     @Test
@@ -98,8 +102,6 @@ class HubTokenTest extends TestBase {
         NetworkAddress bob = new NetworkAddress(ethNid, "0x32");
         BigInteger amount = BigInteger.TWO.pow(18);
         addBalance(alice, amount);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
 
         byte[] expectedCallData = HubTokenMessages.xCrossTransfer(aliceNetworkAddress.toString(), bob.toString(), amount, new byte[0]);
         byte[] expectedRollbackData = HubTokenMessages.xCrossTransferRevert(bob.toString(), amount);
@@ -127,9 +129,6 @@ class HubTokenTest extends TestBase {
         Account bob = sm.createAccount();
         NetworkAddress bobNetworkAddress = new NetworkAddress(ICON_NID, bob.getAddress());
         BigInteger amount = BigInteger.TWO.pow(18);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
         tokenScore.invoke(owner, "crossTransfer", alice.toString(), amount, new byte[0]);
 
         // Act
@@ -152,9 +151,6 @@ class HubTokenTest extends TestBase {
         NetworkAddress receiverContractNetworkAddress = new NetworkAddress(ICON_NID, receiverContract.getAddress());
         BigInteger amount = BigInteger.TWO.pow(18);
         byte[] data = "test".getBytes();
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
         tokenScore.invoke(owner, "crossTransfer", alice.toString(), amount, data);
 
         // Act
@@ -179,8 +175,6 @@ class HubTokenTest extends TestBase {
         NetworkAddress xCallNetworkAddress = new NetworkAddress(ICON_NID,  xCall.getAddress().toString());
         BigInteger amount = BigInteger.TWO.pow(18);
         addBalance(alice, amount);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
 
         byte[] expectedCallData = HubTokenMessages.xCrossTransfer(aliceNetworkAddress.toString(), bob.toString(), amount, new byte[0]);
         byte[] expectedRollbackData = HubTokenMessages.xCrossTransferRevert(bob.toString(), amount);
@@ -207,9 +201,6 @@ class HubTokenTest extends TestBase {
         NetworkAddress alice = new NetworkAddress(bscNid, "0x35");
         NetworkAddress bob = new NetworkAddress(ethNid, "0x32");
         BigInteger amount = BigInteger.TWO.pow(18);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
         tokenScore.invoke(owner, "crossTransfer", alice.toString(), amount, new byte[0]);
 
         byte[] expectedCallData = HubTokenMessages.xCrossTransfer(bob.toString(), bob.toString(), amount, new byte[0]);
@@ -241,9 +232,6 @@ class HubTokenTest extends TestBase {
         NetworkAddress alice = new NetworkAddress(bscNid, "0x35");
         NetworkAddress bob = new NetworkAddress(ethNid, "0x32");
         BigInteger amount = BigInteger.TWO.pow(18);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
         tokenScore.invoke(owner, "crossTransfer", alice.toString(), amount, new byte[0]);
 
         // Act
@@ -267,9 +255,6 @@ class HubTokenTest extends TestBase {
         BigInteger amount = BigInteger.TWO.pow(18);
         BigInteger xCallFee = BigInteger.TEN;
         BigInteger fee = BigInteger.valueOf(7);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
         tokenScore.invoke(owner, "crossTransfer", alice.toString(), amount, new byte[0]);
 
         when(tokenSpy.getHopFee(bob.net())).thenReturn(xCallFee);
@@ -325,9 +310,6 @@ class HubTokenTest extends TestBase {
         BigInteger fee = BigInteger.valueOf(7);
         when(tokenSpy.getHopFee(bob.net())).thenReturn(xCallFee);
         when(tokenSpy.getTokenFee(bob.net(), xCallFee, amount)).thenReturn(fee);
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
 
         byte[] expectedCallData = HubTokenMessages.xCrossTransfer(bob.toString(), bob.toString(), amount.subtract(fee), new byte[0]);
         byte[] expectedRollbackData = HubTokenMessages.xCrossTransferRevert(bob.toString(), amount.subtract(fee));
