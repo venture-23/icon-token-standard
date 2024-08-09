@@ -55,16 +55,16 @@ module spoke_token::spoke_manager {
         id: UID 
     }
 
-    public struct ContractHolding has key, store{
+    public struct LockedBalance has key, store{
         id: UID,
-        contract_holding: Balance<TEST_COIN>,
+        balance: Balance<TEST_COIN>,
     }
 
     public struct Config has key, store {
         id: UID,
         icon_hub: String,
         version: u64,
-        holding: ContractHolding,
+        balance: LockedBalance,
         id_cap: IDCap,
         xcall_id: ID,
         sources: vector<String>,
@@ -100,15 +100,15 @@ module spoke_token::spoke_manager {
         let id_cap =   xcall::register_dapp(storage, w, ctx);
         let xcall_id = xcall_state::get_id_cap_xcall(&id_cap);
 
-        let contract_holding = ContractHolding {
+        let l_balance = LockedBalance {
             id: object::new(ctx),
-            contract_holding: balance::zero<TEST_COIN>()
+            balance: balance::zero<TEST_COIN>()
         };
 
         let config = Config{
             id: object::new(ctx),
             version,
-            holding: contract_holding,
+            balance: l_balance,
             icon_hub,
             id_cap,
             xcall_id,
@@ -125,7 +125,7 @@ module spoke_token::spoke_manager {
         token: Coin<TEST_COIN>,
         to: String,
         data: Option<vector<u8>>,
-        holding: &mut ContractHolding,
+        l_balance: &mut LockedBalance,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -134,7 +134,7 @@ module spoke_token::spoke_manager {
         assert!(amount > 0, EAmountLessThanZero);
         let sender = ctx.sender();
         let balance = coin::into_balance(token);
-        balance::join(&mut holding.contract_holding, balance);
+        balance::join(&mut l_balance.balance, balance);
         let from_address = address_to_hex_string(&sender);
         let token_address = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let x_message = deposit::wrap_deposit(
@@ -157,7 +157,7 @@ module spoke_token::spoke_manager {
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,
-        holding: &mut ContractHolding,
+        l_balance: &mut LockedBalance,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -182,9 +182,9 @@ module spoke_token::spoke_manager {
             let string_to = withdraw_to::to(&message);
             let to  = network_address::addr(&network_address::from_string(string_to));
             let amount = translate_incoming_amount(withdraw_to::amount(&message) as u128);
-            let val =    balance::value(&holding.contract_holding);
+            let val =    balance::value(&l_balance.balance);
             assert!(amount <= val, EBalanceExceeded);
-            let balance = balance::split(&mut holding.contract_holding, amount);
+            let balance = balance::split(&mut l_balance.balance, amount);
             transfer::public_transfer(coin::from_balance(balance, ctx), address_from_hex_string(&to));
             xcall::execute_call_result(x_ctx, ticket, true, fee, ctx);
         }else {
@@ -198,7 +198,7 @@ module spoke_token::spoke_manager {
         xcall::execute_call_result(xcall,ticket,false,fee,ctx);
     }
 
-    entry fun execute_rollback(config: &Config, xcall: &mut Storage, holding: &mut ContractHolding, sn: u128, ctx:&mut TxContext){
+    entry fun execute_rollback(config: &Config, xcall: &mut Storage, l_balance: &mut LockedBalance, sn: u128, ctx:&mut TxContext){
         validate_version(config);
         let ticket = xcall::execute_rollback(xcall, get_idcap(config), sn, ctx);
         let msg = rollback_ticket::rollback(&ticket);
@@ -211,12 +211,12 @@ module spoke_token::spoke_manager {
         let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let message_token_type = deposit::get_token_type(&msg);
         if(token_type == message_token_type){
-            let total_balance = balance::value(&holding.contract_holding);
+            let total_balance = balance::value(&l_balance.balance);
             let message = deposit_revert::decode(&msg);
             let to = deposit_revert::to(&message);
             let amount = deposit_revert::amount(&message);
             assert!(amount <= total_balance, EBalanceExceeded);
-            let transfer_value = balance::split(&mut holding.contract_holding, amount);
+            let transfer_value = balance::split(&mut l_balance.balance, amount);
             transfer::public_transfer(coin::from_balance(transfer_value, ctx), to);
         };
         xcall::execute_rollback_result(xcall,ticket,true)
