@@ -109,7 +109,7 @@ module spoke_token::spoke_manager {
         });
     }
 
-    public fun cross_transfer<T>(
+    public entry fun cross_transfer<T>(
         config: &mut Config,
         x_ctx:&mut Storage,
         fee: Coin<SUI>,
@@ -142,7 +142,7 @@ module spoke_token::spoke_manager {
         xcall::send_call(x_ctx, fee, get_idcap(config), config.sui_token, envelope::encode(&envelope), ctx);
     }
 
-    public(package) fun execute_call<T>(
+    public entry fun execute_call<T>(
         config: &Config,
         x_ctx:&mut Storage,
         fee: Coin<SUI>,
