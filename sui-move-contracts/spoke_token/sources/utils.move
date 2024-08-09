@@ -3,6 +3,7 @@ module spoke_token::spoke_token_utils {
     use std::string::{Self, String};
     use sui::bcs::{Self};
     use sui::hex::{Self};
+    use sui_rlp::decoder;
 
     public fun address_to_hex_string(address:&address): String {
         let bytes = bcs::to_bytes(address);
@@ -18,6 +19,12 @@ module spoke_token::spoke_token_utils {
         let bytes = modified_str.as_bytes();
         let hex_bytes = hex::decode(*bytes);
         bcs::peel_address(&mut bcs::new(hex_bytes))
+    }
+
+    public fun get_token_type(bytes:&vector<u8>): String{
+        let decoded=decoder::decode_list(bytes);
+        let token_address = decoder::decode_string(vector::borrow(&decoded, 1));
+        token_address
     }
 
     #[test]

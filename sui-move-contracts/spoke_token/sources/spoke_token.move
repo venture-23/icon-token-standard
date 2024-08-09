@@ -51,7 +51,6 @@ module spoke_token::spoke_token {
 
     public struct SpokeToken<phantom T> has key, store {
         id: UID,
-        // Balance of Spoke token
         balance: Balance<T>
     }
 
@@ -70,12 +69,8 @@ module spoke_token::spoke_token {
             id: object::new(ctx),
         }, ctx.sender())
     }    
-     
-    fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
-        let WitnessCarrier { id, witness } = carrier;
-        id.delete();
-        witness
-    }
+
+    // ===== Spoke token Actions ====
 
     /// Create new currency of type 'T'
     public fun create_spoke_currency<T: drop>(
@@ -100,14 +95,19 @@ module spoke_token::spoke_token {
 
     /// Mint a `SpokeToken` with a given `amount` using the `TreasuryCap`.
     public fun mint<T>(
-        cap: &mut TreasuryCap<T>, amount: u64, ctx: &mut TxContext
+        cap: &mut TreasuryCap<T>, 
+        amount: u64, 
+        ctx: &mut TxContext,
     ): SpokeToken<T> {
         let balance = cap.supply_mut().increase_supply(amount);
         SpokeToken { id: object::new(ctx), balance }
     }
 
     public fun mint_and_transfer<T>(
-        cap: &mut TreasuryCap<T>, amount: u64, receipent: address, ctx: &mut TxContext
+        cap: &mut TreasuryCap<T>, 
+        amount: u64, 
+        receipent: address, 
+        ctx: &mut TxContext,
     ){
         transfer::transfer(mint(cap, amount, ctx), receipent);
     }
@@ -163,8 +163,16 @@ module spoke_token::spoke_token {
     public fun keep<T>(token: SpokeToken<T>, ctx: &mut TxContext) {
         transfer::transfer(token, ctx.sender())
     }
-
-    public fun set_protocol(_: &mut AdminCap, config:&mut Config, sources: vector<String>, destinations: vector<String>){
+    
+    /// Protected function
+    /// Set sources  chain ids in config
+    /// Set destinations chain ids in config
+    public fun set_protocol(
+        _: &mut AdminCap, 
+        config: &mut Config, 
+        sources: vector<String>, 
+        destinations: vector<String>,
+    ){
         vector::append(&mut config.sources, sources);
         vector::append(&mut config.destinations, destinations);
     }
@@ -192,7 +200,7 @@ module spoke_token::spoke_token {
             sources,
             destinations,
         });
-    }  
+    }
 
     public fun cross_transfer<T>(
         config: &mut Config,
@@ -212,18 +220,21 @@ module spoke_token::spoke_token {
 
         let sender = ctx.sender();
         let from_address = address_to_hex_string(&sender);
+
         let x_message = wrap_hub_transfer(
             from_address,
             to,
             translate_outgoing_amount(amount),
             message_data
         );
+
         let x_rollback  = cross_transfer_revert::wrap_cross_transfer_revert(sender, amount);
         let x_encoded_msg = cross_transfer::encode(&x_message, CROSS_TRANSFER);
         let rollback = cross_transfer_revert::encode(&x_rollback, CROSS_TRANSFER_REVERT);
         let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, config.sources, config.destinations);
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
+
 
     public(package) fun execute_call<T>(
         config: &Config,
@@ -261,7 +272,7 @@ module spoke_token::spoke_token {
         cap: &mut TreasuryCap<T>,
         sn: u128, 
         ctx:&mut TxContext
-        ){
+    ){
         validate_version(config);
         let ticket = xcall::execute_rollback(xcall, get_idcap(config), sn, ctx);
         let msg = rollback_ticket::rollback(&ticket);
@@ -278,33 +289,28 @@ module spoke_token::spoke_token {
         xcall::execute_rollback_result(xcall,ticket,true)
     }
 
-    entry fun execute_force_rollback(config: &Config, _: &AdminCap,  xcall:&mut Storage, fee:Coin<SUI>, request_id:u128, data:vector<u8>, ctx:&mut TxContext){
+    entry fun execute_force_rollback(
+        config: &Config, 
+        _: &AdminCap,  
+        xcall:&mut Storage, 
+        fee:Coin<SUI>, 
+        request_id:u128, 
+        data:vector<u8>, 
+        ctx:&mut TxContext
+    ){
         validate_version(config);
         let ticket = xcall::execute_call(xcall, get_idcap(config), request_id, data, ctx);
         xcall::execute_call_result(xcall,ticket,false,fee,ctx);
     }
-
-    fun translate_outgoing_amount(amount: u64): u128 {
-        let multiplier = math::pow(10, 9) as u128;
-        (amount as u128) * multiplier 
-    }
-
-    fun translate_incoming_amount(amount: u128): u64{
-        (amount / (math::pow(10,9) as u128)) as u64
-    }
-
-    fun validate_version(self: &Config){
-        assert!(self.version == CURRENT_VERSION, EWrongVersion);
-    }
-
 
     entry fun migrate(self: &mut Config, _: &UpgradeCap){
         assert!(get_version(self) < CURRENT_VERSION, ENotUpgrade);
         set_version(self, CURRENT_VERSION);
     }
 
-    fun set_version(config: &mut Config, version: u64){
-        config.version = version
+    entry fun set_token(_:&AdminCap, config: &mut Config, icon_token: String){
+        validate_version(config);
+        config.icon_token = icon_token;
     }
 
     /// Getters
@@ -322,7 +328,7 @@ module spoke_token::spoke_token {
         config.version
     }
 
-
+    // Private actions
     public fun verify_protocols(config: &Config, protocols: vector<String>): bool{
         validate_version(config);
         verify_protocols_unordered(config.sources, protocols)
@@ -346,4 +352,31 @@ module spoke_token::spoke_token {
             matched
         }
     }
+
+    fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
+        let WitnessCarrier { id, witness } = carrier;
+        id.delete();
+        witness
+    }
+
+    fun set_version(config: &mut Config, version: u64){
+        config.version = version
+    }
+
+    fun translate_outgoing_amount(amount: u64): u128 {
+        let multiplier = math::pow(10, 9) as u128;
+        (amount as u128) * multiplier 
+    }
+
+    fun translate_incoming_amount(amount: u128): u64{
+        (amount / (math::pow(10,9) as u128)) as u64
+    }
+
+    fun validate_version(self: &Config){
+        assert!(self.version == CURRENT_VERSION, EWrongVersion);
+    }
+
+
+
 }
+// foreing_spoke :-  spoke_token
