@@ -3,7 +3,7 @@ module spoke_token::spoke_manager {
     use sui::math::{Self};
     use std::string::{Self, String};
     use std::type_name::{Self};
-    use sui::coin::{Self, Coin, TreasuryCap};
+    use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
     use sui::bag::{Self, Bag};
     use sui::package::UpgradeCap;
@@ -70,7 +70,6 @@ module spoke_token::spoke_manager {
         xcall_id: ID,
         sources: vector<String>,
         destinations: vector<String>,
-        treasury_cap: TreasuryCap<TEST_COIN>,
     }
 
     fun init(ctx: &mut TxContext){
@@ -96,7 +95,6 @@ module spoke_token::spoke_manager {
         icon_hub: String,
         sources: vector<String>,
         destinations: vector<String>,
-        treasury_cap: TreasuryCap<TEST_COIN>,
         ctx: &mut TxContext 
     ){
         let w = get_witness(witness_carrier);
@@ -117,7 +115,6 @@ module spoke_token::spoke_manager {
             xcall_id,
             sources,
             destinations,
-            treasury_cap,
         };
         let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         config.assets.add(token_type, contract_holdings);
