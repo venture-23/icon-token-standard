@@ -26,6 +26,7 @@ public class SpokeTokenImpl implements SpokeToken {
     protected final static String BALANCES = "balances";
     private final static String X_CALL = "x_call";
     public static final String PROTOCOLS = "protocols";
+    private final static String TOKEN_NATIVE_NID = "token_native_nid";
 
     public static String NATIVE_NID;
 
@@ -33,6 +34,7 @@ public class SpokeTokenImpl implements SpokeToken {
 
     private final VarDB<String> name = Context.newVarDB(NAME, String.class);
     private final VarDB<String> symbol = Context.newVarDB(SYMBOL, String.class);
+    private final VarDB<String> tokenNativeNid = Context.newVarDB(TOKEN_NATIVE_NID, String.class);
     private final VarDB<BigInteger> decimals = Context.newVarDB(DECIMALS, BigInteger.class);
     private final VarDB<BigInteger> totalSupply = Context.newVarDB(TOTAL_SUPPLY, BigInteger.class);
     protected final NetworkAddressDictDB<BigInteger> balances = new NetworkAddressDictDB<>(BALANCES, BigInteger.class);
@@ -40,9 +42,10 @@ public class SpokeTokenImpl implements SpokeToken {
     DictDB<String, ProtocolConfig> protocols = Context.newDictDB(PROTOCOLS, ProtocolConfig.class);
 
 
-    public SpokeTokenImpl(Address _xCall, String nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
+    public SpokeTokenImpl(Address _xCall, String nid, String _tokenName, String _symbolName, String _tokenNativeNid, @Optional BigInteger _decimals) {
         xCall.set(_xCall);
         NATIVE_NID = nid;
+        this.tokenNativeNid.set(_tokenNativeNid);
         if (this.name.get() == null) {
             _decimals = _decimals == null ? BigInteger.valueOf(18L) : _decimals;
             Context.require(_decimals.compareTo(BigInteger.ZERO) >= 0, "Decimals cannot be less than zero");
@@ -85,6 +88,11 @@ public class SpokeTokenImpl implements SpokeToken {
     @External(readonly = true)
     public BigInteger decimals() {
         return decimals.get();
+    }
+
+    @External(readonly = true)
+    public String tokenNativeNid() {
+        return tokenNativeNid.get();
     }
 
     @External(readonly = true)

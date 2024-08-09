@@ -48,6 +48,7 @@ deployJar {
         arg("_nid", "0x2.icon")
         arg("_tokenName", "Cross Chain Demo Token")
         arg("_symbolName", "CDM")
+        arg("_tokenNativeNid", "0xa869.fuji")
         arg("_decimals", "18")
     }
 }
