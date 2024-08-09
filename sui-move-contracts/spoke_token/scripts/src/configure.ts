@@ -1,7 +1,7 @@
 import { TransactionBlock } from "@mysten/sui.js/transactions";
 import { deploymentConfig } from "../utils/execStuff";
 
-export async function configure(
+export async function configureSpokeToken(
     packageId: string,
     admin: string, 
     storage: string, 
@@ -33,5 +33,39 @@ export async function configure(
         signer: keypair,
         transactionBlock: tx
     });
-    console.log(`[Mint demo coins] Tx hash: ${result.digest}`);
+    console.log(`[Configure Spoke Token] Tx hash: ${result.digest}`);
+}
+
+
+export async function configureSpokeManager(
+    packageId: string,
+    admin: string, 
+    storage: string, 
+    witness_object: string,
+    version: number,
+    icon_token: string,
+    sources: Array<string>,
+    destination: Array<string>,
+) {
+    const tx = new TransactionBlock();
+    const { keypair, client, address } = await deploymentConfig();
+
+    tx.moveCall({
+        target: `${packageId}::spoke_manager::configure`,
+        arguments: [
+            tx.object(admin),
+            tx.object(storage),
+            tx.object(witness_object),
+            tx.pure.u64(version),
+            tx.pure.string(icon_token),
+            tx.pure(sources),
+            tx.pure(destination),
+        ]
+    });
+   
+    const result = await client.signAndExecuteTransactionBlock({
+        signer: keypair,
+        transactionBlock: tx
+    });
+    console.log(`[Configure Spoke Manager] Tx hash: ${result.digest}`);
 }

@@ -1,5 +1,5 @@
 import {deploy} from '../scripts/utils/deploy';
-import { configure } from './src/configure';
+import { configureSpokeManager , configureSpokeToken } from './src/configure';
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -15,7 +15,7 @@ async function main() {
     console.log(result);
 
     // await mintDemoCoin(result?.packageId, result?.TreasuryCap, 100, '');
-    await configure(
+    await configureSpokeToken(
         result?.packageId, 
         result?.AdminCapSpokeToken, 
         STORAGE, 
@@ -26,6 +26,19 @@ async function main() {
         [DESTINATION],
         result?.TreasuryCap
     )
+
+    await configureSpokeManager(
+        result?.packageId, 
+        result?.AdminCapManagerToken, 
+        STORAGE, 
+        result?.SpokeManagerWitnessManager, 
+        1, 
+        ICON_TOKEN,
+        [SOURCE],
+        [DESTINATION],
+    )
+
+    
 }
 
 main()
