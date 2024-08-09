@@ -6,8 +6,7 @@ function sleep(ms: number): Promise<void> {
         setTimeout(resolve, ms)
     })
 }
-
-export async function configureSpokeToken(
+export async function configureSpokeManager(
     packageId: string,
     admin: string, 
     storage: string, 
@@ -16,13 +15,12 @@ export async function configureSpokeToken(
     icon_token: string,
     sources: Array<string>,
     destination: Array<string>,
-    treasuryCap: string
 ) {
     const tx = new TransactionBlock();
     const { keypair, client, address } = await deploymentConfig();
 
     tx.moveCall({
-        target: `${packageId}::spoke_token::configure`,
+        target: `${packageId}::spoke_manager::configure`,
         arguments: [
             tx.object(admin),
             tx.object(storage),
@@ -31,7 +29,6 @@ export async function configureSpokeToken(
             tx.pure.string(icon_token),
             tx.pure(sources),
             tx.pure(destination),
-            tx.object(treasuryCap),
         ]
     });
    
@@ -39,7 +36,7 @@ export async function configureSpokeToken(
         signer: keypair,
         transactionBlock: tx
     });
-    console.log(`[Configure Spoke Token] Tx hash: ${result.digest}`);
+    console.log(`[Configure Spoke Manager] Tx hash: ${result.digest}`);
     await sleep(10000);
     let txb = await client.getTransactionBlock({
         digest: String(result.digest),
@@ -58,7 +55,7 @@ export async function configureSpokeToken(
     for (let i = 0; i < output.length; i++) {
         const item = output[i];
         if (item.type === 'created') {
-            if (item.objectType == `${packageId}::spoke_token::Config`) {
+            if (item.objectType == `${packageId}::spoke_manager::Config`) {
                 Config = String(item.objectId);
             }
         }
