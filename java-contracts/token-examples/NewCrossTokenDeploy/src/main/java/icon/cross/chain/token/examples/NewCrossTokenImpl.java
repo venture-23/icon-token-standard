@@ -12,8 +12,8 @@ import static icon.cross.chain.token.lib.utils.Check.onlyOwner;
 
 
 public class NewCrossTokenImpl extends HubTokenImpl {
-    public NewCrossTokenImpl(Address _xCall, String _nid, String _tokenName, String _symbolName, BigInteger _decimals) {
-        super(_xCall, _nid, _tokenName, _symbolName, _decimals);
+    public NewCrossTokenImpl(Address _xCall, String _nid, String _tokenName, String _symbolName,  String _tokenNativeNid, BigInteger _decimals) {
+        super(_xCall, _nid, _tokenName, _symbolName, _tokenNativeNid, _decimals);
     }
 
     @External

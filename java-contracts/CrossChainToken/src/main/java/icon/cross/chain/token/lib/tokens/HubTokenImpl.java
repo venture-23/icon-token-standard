@@ -30,8 +30,8 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     // net -> int
     protected final DictDB<String, BigInteger> spokeLimits = Context.newDictDB(SPOKE_LIMITS, BigInteger.class);
 
-    public HubTokenImpl(Address _xCall, String _nid, String _tokenName, String _symbolName, @Optional BigInteger _decimals) {
-        super(_xCall, _nid, _tokenName, _symbolName, _decimals);
+    public HubTokenImpl(Address _xCall, String _nid, String _tokenName, String _symbolName,  String _tokenNativeNid, @Optional BigInteger _decimals) {
+        super(_xCall, _nid, _tokenName, _symbolName, _tokenNativeNid, _decimals);
     }
 
     @EventLog(indexed = 1)
@@ -159,7 +159,12 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
 
     public void _transferToICON(NetworkAddress spokeContract, NetworkAddress to, BigInteger value) {
         BigInteger prevSourceSupply = crossChainSupply.getOrDefault(spokeContract.net(), BigInteger.ZERO);
-        BigInteger newSupply = prevSourceSupply.subtract(value);
+        BigInteger newSupply;
+        if (spokeContract.net().equals(tokenNativeNid())) {
+            newSupply = prevSourceSupply.add(value);
+        } else {
+            newSupply = prevSourceSupply.subtract(value);
+        }
         Context.require(newSupply.compareTo(BigInteger.ZERO) >= 0);
         crossChainSupply.set(spokeContract.net(), newSupply);
         _mint(to, value);
@@ -170,7 +175,12 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
         NetworkAddress spokeAddress = spokeContracts.get(to.net());
         Context.require(spokeAddress != null, to.net() + " is not yet connected");
         BigInteger prevSupply = crossChainSupply.getOrDefault(spokeAddress.net(), BigInteger.ZERO);
-        BigInteger newSupply = prevSupply.add(value);
+        BigInteger newSupply;
+        if (spokeAddress.net().equals(tokenNativeNid())) {
+            newSupply = prevSupply.subtract(value);
+        } else {
+            newSupply = prevSupply.add(value);
+        }
         Context.require(newSupply.compareTo(spokeLimits.getOrDefault(to.net(), BigInteger.ZERO)) < 0, "This chain is not allowed to mint more tokens");
         crossChainSupply.set(spokeAddress.net(), newSupply);
 
