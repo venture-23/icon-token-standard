@@ -5,7 +5,6 @@ module spoke_token::spoke_manager {
     use std::type_name::{Self};
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
-    use sui::bag::{Self, Bag};
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
 
@@ -56,16 +55,16 @@ module spoke_token::spoke_manager {
         id: UID 
     }
 
-    public struct ContractHoldings has key, store{
+    public struct ContractHolding has key, store{
         id: UID,
-        contract_holdings: Balance<TEST_COIN>,
+        contract_holding: Balance<TEST_COIN>,
     }
 
     public struct Config has key, store {
         id: UID,
         icon_hub: String,
         version: u64,
-        assets: Bag,
+        holding: ContractHolding,
         id_cap: IDCap,
         xcall_id: ID,
         sources: vector<String>,
@@ -101,23 +100,21 @@ module spoke_token::spoke_manager {
         let id_cap =   xcall::register_dapp(storage, w, ctx);
         let xcall_id = xcall_state::get_id_cap_xcall(&id_cap);
 
-        let contract_holdings = ContractHoldings {
+        let contract_holding = ContractHolding {
             id: object::new(ctx),
-            contract_holdings: balance::zero<TEST_COIN>()
+            contract_holding: balance::zero<TEST_COIN>()
         };
 
-        let mut config = Config{
+        let config = Config{
             id: object::new(ctx),
             version,
-            assets: bag::new(ctx),
+            holding: contract_holding,
             icon_hub,
             id_cap,
             xcall_id,
             sources,
             destinations,
         };
-        let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
-        config.assets.add(token_type, contract_holdings);
         transfer::share_object(config);
     }
 
@@ -128,7 +125,7 @@ module spoke_token::spoke_manager {
         token: Coin<TEST_COIN>,
         to: String,
         data: Option<vector<u8>>,
-        holdings: &mut ContractHoldings,
+        holding: &mut ContractHolding,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -137,7 +134,7 @@ module spoke_token::spoke_manager {
         assert!(amount > 0, EAmountLessThanZero);
         let sender = ctx.sender();
         let balance = coin::into_balance(token);
-        balance::join(&mut holdings.contract_holdings, balance);
+        balance::join(&mut holding.contract_holding, balance);
         let from_address = address_to_hex_string(&sender);
         let token_address = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let x_message = deposit::wrap_deposit(
@@ -160,7 +157,7 @@ module spoke_token::spoke_manager {
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,
-        holdings: &mut ContractHoldings,
+        holding: &mut ContractHolding,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -185,9 +182,9 @@ module spoke_token::spoke_manager {
             let string_to = withdraw_to::to(&message);
             let to  = network_address::addr(&network_address::from_string(string_to));
             let amount = translate_incoming_amount(withdraw_to::amount(&message) as u128);
-            let val =    balance::value(&holdings.contract_holdings);
+            let val =    balance::value(&holding.contract_holding);
             assert!(amount <= val, EBalanceExceeded);
-            let balance = balance::split(&mut holdings.contract_holdings, amount);
+            let balance = balance::split(&mut holding.contract_holding, amount);
             transfer::public_transfer(coin::from_balance(balance, ctx), address_from_hex_string(&to));
             xcall::execute_call_result(x_ctx, ticket, true, fee, ctx);
         }else {
@@ -201,7 +198,7 @@ module spoke_token::spoke_manager {
         xcall::execute_call_result(xcall,ticket,false,fee,ctx);
     }
 
-    entry fun execute_rollback(config: &Config, xcall: &mut Storage, holdings: &mut ContractHoldings, sn: u128, ctx:&mut TxContext){
+    entry fun execute_rollback(config: &Config, xcall: &mut Storage, holding: &mut ContractHolding, sn: u128, ctx:&mut TxContext){
         validate_version(config);
         let ticket = xcall::execute_rollback(xcall, get_idcap(config), sn, ctx);
         let msg = rollback_ticket::rollback(&ticket);
@@ -214,12 +211,12 @@ module spoke_token::spoke_manager {
         let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let message_token_type = deposit::get_token_type(&msg);
         if(token_type == message_token_type){
-            let total_balance = balance::value(&holdings.contract_holdings);
+            let total_balance = balance::value(&holding.contract_holding);
             let message = deposit_revert::decode(&msg);
             let to = deposit_revert::to(&message);
             let amount = deposit_revert::amount(&message);
             assert!(amount <= total_balance, EBalanceExceeded);
-            let transfer_value = balance::split(&mut holdings.contract_holdings, amount);
+            let transfer_value = balance::split(&mut holding.contract_holding, amount);
             transfer::public_transfer(coin::from_balance(transfer_value, ctx), to);
         };
         xcall::execute_rollback_result(xcall,ticket,true)
