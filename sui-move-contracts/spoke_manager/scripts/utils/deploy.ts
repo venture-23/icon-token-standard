@@ -61,7 +61,7 @@ export async function deploy() {
 
         let output: any;
         output = result.objectChanges;
-        let  TreasuryCap: any, WitnessManager: any, AdminCap: any;
+        let  TreasuryCap: any,  WitnessManager: any, AdminCap: any;
         for (let i = 0; i < output.length; i++) {
             const item = output[i];
             if (item.type === 'created') {
@@ -69,16 +69,14 @@ export async function deploy() {
                     TreasuryCap = String(item.objectId);
                 }
             }
-
             if (item.type === 'created') {
-                if (item.objectType == `${packageId}::spoke_token::WitnessCarrier`) {
+                if (item.objectType == `${packageId}::spoke_manager::WitnessCarrier`) {
                     WitnessManager = String(item.objectId);
                 }
             }
 
-
             if (item.type === 'created') {
-                if (item.objectType == `${packageId}::spoke_token::AdminCap`) {
+                if (item.objectType == `${packageId}::spoke_manager::AdminCap`) {
                     AdminCap = String(item.objectId);
                 }
             }
@@ -86,6 +84,6 @@ export async function deploy() {
         return { packageId,  TreasuryCap, WitnessManager, AdminCap};
     } catch (error) {
         console.error(error);
-        return { packageId: '',  TreasuryCap: '', WitnessManager:'', AdminCap:''};
+        return { packageId: '',  TreasuryCap: '', AdminCapSpokeToken:'',  AdminCap:''};
     }
 }
