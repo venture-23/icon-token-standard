@@ -101,8 +101,8 @@ module spoke_token::spoke_token {
             id_cap,
             xcall_id,
             sources,
-            treasury_cap,
             destinations,
+            treasury_cap,
         });
     }
 

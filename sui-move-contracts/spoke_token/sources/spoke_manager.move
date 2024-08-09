@@ -3,8 +3,9 @@ module spoke_token::spoke_manager {
     use sui::math::{Self};
     use std::string::{Self, String};
     use std::type_name::{Self};
-    use sui::coin::{Self, Coin};
+    use sui::coin::{Self, Coin, TreasuryCap};
     use sui::balance::{Self, Balance};
+    use sui::bag::{Self, Bag};
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
 
@@ -12,13 +13,14 @@ module spoke_token::spoke_manager {
     use spoke_token::deposit::{Self};
     use spoke_token::deposit_revert::{Self};
     use spoke_token::withdraw_to::{Self};
+    use spoke_token::test_coin::{TEST_COIN};
 
     use xcall::{main as xcall};
     use xcall::execute_ticket::{Self};
     use xcall::envelope::{Self};
     use xcall::rollback_ticket::{Self};
     use xcall::network_address::{Self};
-    use xcall::xcall_state::{Storage, IDCap};
+    use xcall::xcall_state::{Self, Storage, IDCap};
 
 
     public struct REGISTER_WITNESS has drop, store {}
@@ -54,19 +56,21 @@ module spoke_token::spoke_manager {
         id: UID 
     }
 
-    public struct ContractHoldings<phantom T> has key {
+    public struct ContractHoldings has key, store{
         id: UID,
-        contract_holdings: Balance<T>,
+        contract_holdings: Balance<TEST_COIN>,
     }
 
     public struct Config has key, store {
         id: UID,
+        icon_hub: String,
         version: u64,
-        sui_token: String,
+        assets: Bag,
         id_cap: IDCap,
         xcall_id: ID,
         sources: vector<String>,
         destinations: vector<String>,
+        treasury_cap: TreasuryCap<TEST_COIN>,
     }
 
     fun init(ctx: &mut TxContext){
@@ -89,34 +93,45 @@ module spoke_token::spoke_manager {
         storage: &Storage, 
         witness_carrier: WitnessCarrier, 
         version: u64,
-        sui_token: String,
+        icon_hub: String,
         sources: vector<String>,
         destinations: vector<String>,
-        xcall_id: ID,
+        treasury_cap: TreasuryCap<TEST_COIN>,
         ctx: &mut TxContext 
     ){
         let w = get_witness(witness_carrier);
         let id_cap =   xcall::register_dapp(storage, w, ctx);
-        
-        transfer::share_object(Config{
+        let xcall_id = xcall_state::get_id_cap_xcall(&id_cap);
+
+        let contract_holdings = ContractHoldings {
+            id: object::new(ctx),
+            contract_holdings: balance::zero<TEST_COIN>()
+        };
+
+        let mut config = Config{
             id: object::new(ctx),
             version,
-            sui_token,
+            assets: bag::new(ctx),
+            icon_hub,
             id_cap,
             xcall_id,
             sources,
             destinations,
-        });
+            treasury_cap,
+        };
+        let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
+        config.assets.add(token_type, contract_holdings);
+        transfer::share_object(config);
     }
 
-    public entry fun cross_transfer<T>(
+    public entry fun cross_transfer(
         config: &mut Config,
         x_ctx:&mut Storage,
         fee: Coin<SUI>,
-        token: Coin<T>,
+        token: Coin<TEST_COIN>,
         to: String,
         data: Option<vector<u8>>,
-        holdings: &mut ContractHoldings<T>,
+        holdings: &mut ContractHoldings,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -127,7 +142,7 @@ module spoke_token::spoke_manager {
         let balance = coin::into_balance(token);
         balance::join(&mut holdings.contract_holdings, balance);
         let from_address = address_to_hex_string(&sender);
-        let token_address = string::from_ascii(*type_name::borrow_string(&type_name::get<T>()));
+        let token_address = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let x_message = deposit::wrap_deposit(
             token_address,
             from_address,
@@ -139,16 +154,16 @@ module spoke_token::spoke_manager {
         let x_encoded_msg = deposit::encode(&x_message, DEPOSIT_NAME);
         let rollback = deposit_revert::encode(&x_rollback, DEPOSIT_REVERT_NAME);
         let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, config.sources, config.destinations);
-        xcall::send_call(x_ctx, fee, get_idcap(config), config.sui_token, envelope::encode(&envelope), ctx);
+        xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_hub, envelope::encode(&envelope), ctx);
     }
 
-    public entry fun execute_call<T>(
+    public entry fun execute_call(
         config: &Config,
         x_ctx:&mut Storage,
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,
-        holdings: &mut ContractHoldings<T>,
+        holdings: &mut ContractHoldings,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -160,7 +175,7 @@ module spoke_token::spoke_manager {
         let verified = verify_protocols(config, protocols);
         let method: vector<u8> = deposit::get_method(&msg);
 
-        let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<T>()));
+        let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let message_token_type = get_token_type(&msg);
 
         assert!(
@@ -168,7 +183,7 @@ module spoke_token::spoke_manager {
             ETypeArgumentMismatch
         );
 
-        if(verified && (method == WITHDRAW_TO_NAME || method == WITHDRAW_NATIVE_TO_NAME) && from == network_address::from_string(config.sui_token)){
+        if(verified && (method == WITHDRAW_TO_NAME || method == WITHDRAW_NATIVE_TO_NAME) && from == network_address::from_string(config.icon_hub)){
             let message = withdraw_to::decode(&msg);
             let string_to = withdraw_to::to(&message);
             let to  = network_address::addr(&network_address::from_string(string_to));
@@ -189,7 +204,7 @@ module spoke_token::spoke_manager {
         xcall::execute_call_result(xcall,ticket,false,fee,ctx);
     }
 
-    entry fun execute_rollback<T>(config: &Config, xcall: &mut Storage, holdings: &mut ContractHoldings<T>, sn: u128, ctx:&mut TxContext){
+    entry fun execute_rollback(config: &Config, xcall: &mut Storage, holdings: &mut ContractHoldings, sn: u128, ctx:&mut TxContext){
         validate_version(config);
         let ticket = xcall::execute_rollback(xcall, get_idcap(config), sn, ctx);
         let msg = rollback_ticket::rollback(&ticket);
@@ -199,7 +214,7 @@ module spoke_token::spoke_manager {
             UnknownMessageType
         );
 
-        let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<T>()));
+        let token_type = string::from_ascii(*type_name::borrow_string(&type_name::get<TEST_COIN>()));
         let message_token_type = deposit::get_token_type(&msg);
         if(token_type == message_token_type){
             let total_balance = balance::value(&holdings.contract_holdings);
