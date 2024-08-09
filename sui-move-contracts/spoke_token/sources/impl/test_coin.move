@@ -19,7 +19,7 @@ module spoke_token::test_coin{
       transfer::public_transfer(treasury, ctx.sender());
    }
   
-   public entry fun mint(
+   public(package) fun mint(
       treasury_cap: &mut TreasuryCap<TEST_COIN>, 
       amount: u64, 
       recipient: address, 
