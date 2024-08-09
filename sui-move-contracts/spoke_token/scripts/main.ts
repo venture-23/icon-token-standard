@@ -1,11 +1,44 @@
 import {deploy} from '../scripts/utils/deploy';
-import { mintDemoCoin } from './src/mintCoin';
+import { configureSpokeManager , configureSpokeToken } from './src/configure';
+import * as dotenv from "dotenv";
+
+dotenv.config();
+
+
+const STORAGE = process.env.ICON_STORAGE || "";
+const SOURCE = process.env.SOURCE || "";
+const DESTINATION = process.env.DESTINATION || "";
+const ICON_TOKEN = process.env.ICON_TOKEN || "";
 
 async function main() {
     const result = await deploy();
     console.log(result);
 
-    await mintDemoCoin(result?.packageId, result?.TreasuryCap, 100, '0xfaef51a8054c15bb6b5e8a30e0bd42c141b96109b7ba127523fad4eca4017214');
+    // await mintDemoCoin(result?.packageId, result?.TreasuryCap, 100, '');
+    await configureSpokeToken(
+        result?.packageId, 
+        result?.AdminCapSpokeToken, 
+        STORAGE, 
+        result?.SpokeWitnessManager, 
+        1, 
+        ICON_TOKEN,
+        [SOURCE],
+        [DESTINATION],
+        result?.TreasuryCap
+    )
+
+    await configureSpokeManager(
+        result?.packageId, 
+        result?.AdminCapManagerToken, 
+        STORAGE, 
+        result?.SpokeManagerWitnessManager, 
+        1, 
+        ICON_TOKEN,
+        [SOURCE],
+        [DESTINATION],
+    )
+
+    
 }
 
 main()

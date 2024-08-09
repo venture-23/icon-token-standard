@@ -2,37 +2,32 @@
 module spoke_token::spoke_token {
     use sui::math::{Self};
     use std::string::String;
-    use sui::url::Url;
-    use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
-    use sui::balance::{Self, Balance};
+    use sui::coin::{Self, Coin, TreasuryCap};
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
     
     use spoke_token::spoke_token_utils::{address_to_hex_string, address_from_hex_string};
     use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
     use spoke_token::cross_transfer_revert::{Self, XCrossTransferRevert};
+    use spoke_token::test_coin::{Self, TEST_COIN};
 
     use xcall::{main as xcall};
     use xcall::execute_ticket::{Self};
     use xcall::envelope::{Self};
     use xcall::rollback_ticket::{Self};
     use xcall::network_address::{Self};
-    use xcall::xcall_state::{Storage, IDCap};
+    use xcall::xcall_state::{Self, Storage, IDCap};
 
 
     // === Errors ===
 
     const EAmountLessThanZero: u64 = 1;
 
-    const EBalanceTooLow: u64 = 2;
+    const EWrongVersion: u64 = 2;
 
-    const ENotZero: u64 = 3;
+    const ENotUpgrade: u64 = 3;
 
-    const EWrongVersion: u64 = 4;
-
-    const ENotUpgrade: u64 = 5;
-
-    const UnknownMessageType: u64 = 6;
+    const UnknownMessageType: u64 = 4;
 
     /// Constants
     const CURRENT_VERSION: u64 = 1;
@@ -49,11 +44,6 @@ module spoke_token::spoke_token {
         id: UID 
     }
 
-    public struct SpokeToken<phantom T> has key, store {
-        id: UID,
-        balance: Balance<T>
-    }
-
     public struct Config has key, store {
         id: UID,
         version: u64,
@@ -61,109 +51,21 @@ module spoke_token::spoke_token {
         id_cap: IDCap,
         xcall_id: ID,
         sources: vector<String>,
-        destinations: vector<String>
+        destinations: vector<String>,
+        treasury_cap: TreasuryCap<TEST_COIN>,
     }
 
     fun init(ctx: &mut TxContext){
         transfer::transfer(AdminCap{
             id: object::new(ctx),
-        }, ctx.sender())
+        }, ctx.sender());
+
+        transfer::transfer(WitnessCarrier{
+            id: object::new(ctx), 
+            witness: REGISTER_WITNESS{},
+        }, ctx.sender());
     }    
 
-    // ===== Spoke token Actions ====
-
-    /// Create new currency of type 'T'
-    public fun create_spoke_currency<T: drop>(
-        witness: T,
-        decimals: u8,
-        symbol: vector<u8>,
-        name: vector<u8>,
-        description: vector<u8>,
-        icon_url: Option<Url>,
-        ctx: &mut TxContext
-    ): (TreasuryCap<T>, CoinMetadata<T>){
-        coin::create_currency<T>(
-            witness, 
-            decimals, 
-            symbol,
-            name,
-            description,
-            icon_url, 
-            ctx
-        )
-    }
-
-    /// Mint a `SpokeToken` with a given `amount` using the `TreasuryCap`.
-    public fun mint<T>(
-        cap: &mut TreasuryCap<T>, 
-        amount: u64, 
-        ctx: &mut TxContext,
-    ): SpokeToken<T> {
-        let balance = cap.supply_mut().increase_supply(amount);
-        SpokeToken { id: object::new(ctx), balance }
-    }
-
-    public fun mint_and_transfer<T>(
-        cap: &mut TreasuryCap<T>, 
-        amount: u64, 
-        receipent: address, 
-        ctx: &mut TxContext,
-    ){
-        transfer::transfer(mint(cap, amount, ctx), receipent);
-    }
-
-
-    /// Burn a `SpokeToken` using the `TreasuryCap`.
-    public fun burn<T>(cap: &mut TreasuryCap<T>, token: SpokeToken<T>) {
-        let SpokeToken { id, balance } = token;
-        cap.supply_mut().decrease_supply(balance);
-        id.delete();
-    }
-
-    // === Public Actions ===
-
-    /// Join two `SpokeToken`s into one, always available.
-    public fun join<T>(token: &mut SpokeToken<T>, another: SpokeToken<T>) {
-        let SpokeToken { id, balance } = another;
-        token.balance.join(balance);
-        id.delete();
-    }
-
-    /// Split a `SpokeToken` with `amount`.
-    /// Aborts if the `SpokeToken.balance` is lower than `amount`.
-    public fun split<T>(
-        token: &mut SpokeToken<T>, amount: u64, ctx: &mut TxContext
-    ): SpokeToken<T> {
-        assert!(token.balance.value() >= amount, EBalanceTooLow);
-        SpokeToken {
-            id: object::new(ctx),
-            balance: token.balance.split(amount),
-        }
-    }
-
-    /// Create a zero `SpokeToken`.
-    public fun zero<T>(ctx: &mut TxContext): SpokeToken<T> {
-        SpokeToken {
-            id: object::new(ctx),
-            balance: balance::zero(),
-        }
-    }
-
-    /// Destroy an empty `SpokeToken`, fails if the balance is non-zero.
-    /// Aborts if the `SpokeToken.balance` is not zero.
-    public fun destroy_zero<T>(token: SpokeToken<T>) {
-        let SpokeToken { id, balance } = token;
-        assert!(balance.value() == 0, ENotZero);
-        balance.destroy_zero();
-        id.delete();
-    }
-
-    #[allow(lint(custom_state_change, self_transfer))]
-    /// Transfer the `SpokeToken` to the transaction sender.
-    public fun keep<T>(token: SpokeToken<T>, ctx: &mut TxContext) {
-        transfer::transfer(token, ctx.sender())
-    }
-    
     /// Protected function
     /// Set sources  chain ids in config
     /// Set destinations chain ids in config
@@ -185,11 +87,12 @@ module spoke_token::spoke_token {
         icon_token: String, 
         sources: vector<String>,
         destinations: vector<String>,
-        xcall_id: ID,
-        ctx: &mut TxContext 
+        treasury_cap: TreasuryCap<TEST_COIN>,
+        ctx: &mut TxContext,
     ){
         let w = get_witness(witness_carrier);
         let id_cap =   xcall::register_dapp(storage, w, ctx);
+        let xcall_id = xcall_state::get_id_cap_xcall(&id_cap);
         
         transfer::share_object(Config{
             id: object::new(ctx),
@@ -199,24 +102,24 @@ module spoke_token::spoke_token {
             xcall_id,
             sources,
             destinations,
+            treasury_cap,
         });
     }
 
-    public fun cross_transfer<T>(
+    public entry fun cross_transfer(
         config: &mut Config,
-        x_ctx:&mut Storage,
+        x_ctx: &mut Storage,
         fee: Coin<SUI>,
-        token: Coin<T>,
+        token: Coin<TEST_COIN>,
         to: String,
         data: Option<vector<u8>>,
-        cap: &mut TreasuryCap<T>,
         ctx: &mut TxContext,
     ){
         validate_version(config);
         let message_data = option::get_with_default(&data, b"");
         let amount = coin::value(&token);
         assert!(amount > 0, EAmountLessThanZero);
-        coin::burn(cap, token);
+        coin::burn(get_treasury_cap_mut(config), token);
 
         let sender = ctx.sender();
         let from_address = address_to_hex_string(&sender);
@@ -236,13 +139,12 @@ module spoke_token::spoke_token {
     }
 
 
-    public(package) fun execute_call<T>(
-        config: &Config,
-        x_ctx:&mut Storage,
+    public entry fun execute_call(
+        config: &mut Config,
+        x_ctx: &mut Storage,
         fee: Coin<SUI>,
         request_id:u128,
         data: vector<u8>,
-        cap: &mut TreasuryCap<T>,
         ctx: &mut TxContext,
     ){
         validate_version(config);
@@ -259,17 +161,17 @@ module spoke_token::spoke_token {
             let string_to = cross_transfer::to(&message);
             let to  = network_address::addr(&network_address::from_string(string_to));
             let amount = translate_incoming_amount(cross_transfer::value(&message));
-            mint_and_transfer(cap, amount, address_from_hex_string(&to),ctx);
+            test_coin::mint(get_treasury_cap_mut(config), amount, address_from_hex_string(&to),ctx);
             xcall::execute_call_result(x_ctx, ticket, true, fee, ctx);
         }else {
             xcall::execute_call_result(x_ctx, ticket, false, fee, ctx);
         }
     }
 
-    entry fun execute_rollback<T>(
+    public entry fun execute_rollback(
         config: &Config, 
         xcall: &mut Storage, 
-        cap: &mut TreasuryCap<T>,
+        cap: &mut TreasuryCap<TEST_COIN>,
         sn: u128, 
         ctx:&mut TxContext
     ){
@@ -285,11 +187,11 @@ module spoke_token::spoke_token {
         let message: XCrossTransferRevert = cross_transfer_revert::decode(&msg);
         let to = cross_transfer_revert::to(&message);
         let amount: u64 = cross_transfer_revert::value(&message);
-        mint_and_transfer(cap, amount, to, ctx);
+        test_coin::mint(cap, amount, to, ctx);
         xcall::execute_rollback_result(xcall,ticket,true)
     }
 
-    entry fun execute_force_rollback(
+    public entry fun execute_force_rollback(
         config: &Config, 
         _: &AdminCap,  
         xcall:&mut Storage, 
@@ -353,6 +255,9 @@ module spoke_token::spoke_token {
         }
     }
 
+    fun get_treasury_cap_mut(config: &mut Config): &mut TreasuryCap<TEST_COIN>{
+        &mut config.treasury_cap
+    }
     fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
         let WitnessCarrier { id, witness } = carrier;
         id.delete();
@@ -375,8 +280,4 @@ module spoke_token::spoke_token {
     fun validate_version(self: &Config){
         assert!(self.version == CURRENT_VERSION, EWrongVersion);
     }
-
-
-
 }
-// foreing_spoke :-  spoke_token

@@ -61,7 +61,7 @@ export async function deploy() {
 
         let output: any;
         output = result.objectChanges;
-        let  TreasuryCap: any;
+        let  TreasuryCap: any, SpokeWitnessManager: any, AdminCapSpokeToken: any, SpokeManagerWitnessManager: any, AdminCapManagerToken: any;
         for (let i = 0; i < output.length; i++) {
             const item = output[i];
             if (item.type === 'created') {
@@ -69,11 +69,34 @@ export async function deploy() {
                     TreasuryCap = String(item.objectId);
                 }
             }
-        }
 
-        return { packageId,  TreasuryCap};
+            if (item.type === 'created') {
+                if (item.objectType == `${packageId}::spoke_token::WitnessCarrier`) {
+                    SpokeWitnessManager = String(item.objectId);
+                }
+            }
+
+            if (item.type === 'created') {
+                if (item.objectType == `${packageId}::spoke_manager::WitnessCarrier`) {
+                    SpokeManagerWitnessManager = String(item.objectId);
+                }
+            }
+
+            if (item.type === 'created') {
+                if (item.objectType == `${packageId}::spoke_token::AdminCap`) {
+                    AdminCapSpokeToken = String(item.objectId);
+                }
+            }
+
+            if (item.type === 'created') {
+                if (item.objectType == `${packageId}::spoke_manager::AdminCap`) {
+                    AdminCapManagerToken = String(item.objectId);
+                }
+            }
+        }
+        return { packageId,  TreasuryCap, SpokeWitnessManager, AdminCapSpokeToken, SpokeManagerWitnessManager, AdminCapManagerToken};
     } catch (error) {
         console.error(error);
-        return { packageId: '',  TreasuryCap: ''};
+        return { packageId: '',  TreasuryCap: '', SpokeWitnessManager:'', AdminCapSpokeToken:'', SpokeManagerWitnessManager:'', AdminCapManagerToken:''};
     }
 }
