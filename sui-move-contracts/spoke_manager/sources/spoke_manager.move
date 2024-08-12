@@ -307,4 +307,9 @@ module spoke_manager::spoke_manager{
     fun validate_version(self: &Config){
         assert!(self.version == CURRENT_VERSION, EWrongVersion);
     }
+    
+    #[test_only]
+    public fun init_test(ctx: &mut TxContext) {
+        init(ctx)
+    }
 }

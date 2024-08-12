@@ -169,9 +169,8 @@ module spoke_token::spoke_token {
     }
 
     public entry fun execute_rollback(
-        config: &Config, 
-        xcall: &mut Storage, 
-        cap: &mut TreasuryCap<TEST_COIN>,
+        config: &mut Config, 
+        xcall: &mut Storage,
         sn: u128, 
         ctx:&mut TxContext
     ){
@@ -187,7 +186,7 @@ module spoke_token::spoke_token {
         let message: XCrossTransferRevert = cross_transfer_revert::decode(&msg);
         let to = cross_transfer_revert::to(&message);
         let amount: u64 = cross_transfer_revert::value(&message);
-        test_coin::mint(cap, amount, to, ctx);
+        test_coin::mint(get_treasury_cap_mut(config), amount, to, ctx);
         xcall::execute_rollback_result(xcall,ticket,true)
     }
 
@@ -258,6 +257,8 @@ module spoke_token::spoke_token {
     fun get_treasury_cap_mut(config: &mut Config): &mut TreasuryCap<TEST_COIN>{
         &mut config.treasury_cap
     }
+
+
     fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
         let WitnessCarrier { id, witness } = carrier;
         id.delete();
@@ -279,5 +280,15 @@ module spoke_token::spoke_token {
 
     fun validate_version(self: &Config){
         assert!(self.version == CURRENT_VERSION, EWrongVersion);
+    }
+
+    #[test_only]
+    public fun get_treasury_cap_for_testing(config: &mut Config): &mut TreasuryCap<TEST_COIN>{
+        &mut config.treasury_cap
+    }
+
+    #[test_only]
+    public fun init_test(ctx: &mut TxContext) {
+        init(ctx)
     }
 }
