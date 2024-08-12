@@ -8,6 +8,8 @@ Link to discussion: https://github.com/icon-project/IIPs/discussions/74
 
 The Cross Chain Token Standard aims to enable interoperability across multiple chains connected via ICON's GMP. This standard will facilitate seamless migration of existing tokens on ICON and chains connected by ICON GMP to a new cross-chain token standard designed for compatibility and easy integration with Balanced. This repo contains the implemenatation library with some use case examples on ICON, SUI and EVM chains.
 
+## Implementation
+
 The exists three different scenarios for the cross cahin token standard implementation, which are listed below:
 
 1. Deploy New Cross Chain Token
@@ -38,3 +40,103 @@ The exists three different scenarios for the cross cahin token standard implemen
    * [Spoke Manager Implementation on SUI](https://github.com/venture-23/icon-token-standard/blob/development/sui-move-contracts/spoke_manager/sources/spoke_manager.move)
     
    * [Spoke Manager Implemantation on EVM](https://github.com/venture-23/icon-token-standard/blob/development/solidity-contracts/icon-cross-chain-token/src/tokens/SpokeTokenManager.sol)
+
+
+## SUI Chain
+The cross token standard can be implemented three ways on SUI. The first being the new token deployment and other two are upgrading an existing token or deploying a spoke manager for an existing token. 
+
+### Installation
+First make sure you have ts-node installed globally on your machine.
+
+```
+npm install -g ts-node
+```
+
+``` 
+yarn install 
+```
+
+### Getting Started
+
+Cloning the cross token standard git repo by running following command.
+
+``` 
+git clone https://github.com/venture-23/icon-token-standard.git 
+```
+
+If you wish to deploy a new token or upgrade an existing token then,
+change into the directory.
+
+``` 
+cd sui-move-contracts/spoke_token 
+```
+
+OR
+
+If you want to deploy Spoke Manager Contract for an existing token then, change into the diractory
+``` 
+cd sui-move-contracts/spoke_manager 
+```
+
+You can find an implementation example on how to deploy a spoke_token or a spoke_manager. Go into ```sources/impl``` directory on either token types. There you will find a ```test_coin.move``` contract. This is an example for a demo token on SUI. The token type is ```TEST_COIN```. It is a normal coin type on SUI. So, now if you want to make this token a cross chain token, you have two options to do that:
+
+1. Upgrade Contract
+   If you want to upgrade an existing token then you need to add the functions from```spoke_token/sources/spoke_token.move``` to your token caontact and upgrade it. For example, you can upgrade the TEST_COIN by upgrading the ```spoke_token/sources/impl/test_coin.move``` contract. For this, you will need to add the functions from ```spoke_token/sources/spoke_token.move```  into your ```test_coin.move``` contract and upgrade it. Also, you must change the COIN_TYPE "<TEST_COIN>" on ```spoke_token.move``` for the type of the token you are going to upgrade. 
+
+2. Deploy Spoke Manager
+   If you want to deploy a spoke manager for an existing token then, you need to deploy ```spoke_manager/sources/spoke_manager.move``` contract by changing the COIN_TYPE "<TEST_COIN>" to your coin type. For example, you can deploy a spoke manager contract for the TEST_COIN token. For this, you must have an existing token then, you must deploy a spoke manager contract from ```spoke_manager/sources/spoke_manager.move```. You must change the COIN_TYPE "<TEST_COIN>" on ```spoke_manager.move``` for the type of the token you are going to deploy. You can comment out ```spoke_manager/sources/impl/test_coin.move``` file as it is not necessary for this case.
+
+   If you run the [Scripts](#scripts)from ```spoke_manager/scripts/main.ts``` directory then, it will deploy a Spoke Manager contract for the given token type.
+
+3. Deploy New Token
+   If you want to deploy a new cross chain token on SUI. You can just update ```spoke_token/sources/impl/test_coin.move``` contract with which will act as a normal coin on SUI and deploy its corresponding spoke token on SUI from ```spoke_token/sources/spoke_token.move```.
+
+   If you run the [Scripts](#scripts) below from ```spoke_token/scripts/main.ts``` then, it will deploy a TEST_COIN contract and a Spoke Token contract for the give token type.
+
+
+### Scripts
+Follow the below steps to deploy a cross token on SUI.
+
+Create a ```.env``` file and update the configs as shown in below example. 
+
+Following command will create a ```.env``` file from the ```.env.sample```.
+
+```
+cp .env.sample .env 
+```
+
+Example of configs inside .env file.
+```shell 
+MNEMONICS=""
+ADDRESS=""
+NETWORK="testnet"
+ICON_STORAGE="0xc6c58d63863b7a1fdc8e10fa70dc9d8153543e1185f609d05c3af549615dec3f"
+SOURCE="centralized-1"
+DESTINATION="cx07300971594d7160a9ec62e4ec68d8fa10b9d9dc"
+ICON_TOKEN= "0x2.icon/cx38cfd5689c7951606d049c04b0a4a549c2910b6b"
+
+```
+Here is a description of the fields:
+
+```MNEMONICS``` is he mnemonics of the wallet that will deploy the contract.
+
+```ADDRESS``` is the address of the wallet that deploys the contract.
+
+```NETWORK``` is the newtwork on which contract is deployed.
+
+```ICON_STORAGE``` is 
+
+```SOURCE``` is the relay address of source chain.
+
+```DESTINATION``` is the relay address of destination chain.
+
+```ICON_TOKEN``` is the hub token address for the token on ICON chain.
+
+
+Now all the setup is done, we are ready to deploy a new cross chain token on SUI. For that run below commands:
+
+```
+ts-node scripts/main.ts
+```
+
+This command will deploy a new Spoke Token/ Spoke Manager Contract on SUI. If you are running a command from ```spoke_token``` directory then, a ```spoke_token``` package will be deployed,(and if the command is ran from ```spoke_manager``` directory then, a ```spoke_manager``` package will be deployed) along with ```demo_coin``` package. It will also run the configuration setups for the deployed ```token``` package.
