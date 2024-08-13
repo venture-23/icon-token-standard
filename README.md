@@ -43,17 +43,13 @@ The exists three different scenarios for the cross cahin token standard implemen
 
 
 ## SUI Chain
-The cross token standard can be implemented three ways on SUI. The first being the new token deployment and other two are upgrading an existing token or deploying a spoke manager for an existing token. 
+The cross token standard can be implemented two ways on SUI. The first being the new token deployment and other is deploying a spoke manager for an existing token. 
 
 ### Installation
 First make sure you have ts-node installed globally on your machine.
 
 ```
 npm install -g ts-node
-```
-
-``` 
-yarn install 
 ```
 
 ### Getting Started
@@ -64,7 +60,7 @@ Cloning the cross token standard git repo by running following command.
 git clone https://github.com/venture-23/icon-token-standard.git 
 ```
 
-If you wish to deploy a new token or upgrade an existing token then,
+If you wish to deploy a new cross chain token then,
 change into the directory.
 
 ``` 
@@ -78,24 +74,31 @@ If you want to deploy Spoke Manager Contract for an existing token then, change 
 cd sui-move-contracts/spoke_manager 
 ```
 
-You can find an implementation example on how to deploy a spoke_token or a spoke_manager. Go into ```sources/impl``` directory on either token types. There you will find a ```test_coin.move``` contract. This is an example for a demo token on SUI. The token type is ```TEST_COIN```. It is a normal coin type on SUI. So, now if you want to make this token a cross chain token, you have two options to do that:
 
-1. Upgrade Contract
-   If you want to upgrade an existing token then you need to add the functions from```spoke_token/sources/spoke_token.move``` to your token caontact and upgrade it. For example, you can upgrade the TEST_COIN by upgrading the ```spoke_token/sources/impl/test_coin.move``` contract. For this, you will need to add the functions from ```spoke_token/sources/spoke_token.move```  into your ```test_coin.move``` contract and upgrade it. Also, you must change the COIN_TYPE "<TEST_COIN>" on ```spoke_token.move``` for the type of the token you are going to upgrade. 
+<!-- You can find an implementation example on how to deploy a spoke_token or a spoke_manager. Go into ```sources/impl``` directory on either token types. There you will find a ```test_coin.move``` contract. This is an example for a demo token on SUI. The token type is ```TEST_COIN```. It is a normal coin type on SUI. So, now if you want to make this token a cross chain token, you have two options to do that: -->
+There are two ways you can implement cross token standarad on SUI, that are listed below:
+
+1. Deploy New Cross Chain Token
+   
+   If you want to deploy a new cross chain token on SUI. You can just update ```spoke_token/sources/impl/test_coin.move``` contract with your custom functionality that will implement the SUI coin standard [0x2::coin](https://github.com/MystenLabs/sui/blob/main/crates/sui-framework/packages/sui-framework/sources/coin.move). Next you must change coin type on ```spoke_token/sources/spoke_token.move``` to the coin type you are trying to deploy. For example, replace [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/7c1ab7c9e0923e57713e94f23f2b6b321b6b13d8/sui-move-contracts/spoke_token/sources/spoke_token.move#L12) with your "COIN_TYPE" everywhere you find "TEST_COIN" on ```spoke_token.move``` contract.
+
+   If you run the [Scripts](#scripts) provided below from ```spoke_token/scripts/main.ts``` then, it will deploy a "YOUR_COIN_TYPE" contract and a Spoke Token contract for the give coin type.
 
 2. Deploy Spoke Manager
-   If you want to deploy a spoke manager for an existing token then, you need to deploy ```spoke_manager/sources/spoke_manager.move``` contract by changing the COIN_TYPE "<TEST_COIN>" to your coin type. For example, you can deploy a spoke manager contract for the TEST_COIN token. For this, you must have an existing token then, you must deploy a spoke manager contract from ```spoke_manager/sources/spoke_manager.move```. You must change the COIN_TYPE "<TEST_COIN>" on ```spoke_manager.move``` for the type of the token you are going to deploy. You can comment out ```spoke_manager/sources/impl/test_coin.move``` file as it is not necessary for this case.
-
-   If you run the [Scripts](#scripts)from ```spoke_manager/scripts/main.ts``` directory then, it will deploy a Spoke Manager contract for the given token type.
-
-3. Deploy New Token
-   If you want to deploy a new cross chain token on SUI. You can just update ```spoke_token/sources/impl/test_coin.move``` contract with which will act as a normal coin on SUI and deploy its corresponding spoke token on SUI from ```spoke_token/sources/spoke_token.move```.
-
-   If you run the [Scripts](#scripts) below from ```spoke_token/scripts/main.ts``` then, it will deploy a TEST_COIN contract and a Spoke Token contract for the give token type.
+   
+   If you want to deploy a spoke manager for an existing token then, you need to deploy ```spoke_manager/sources/spoke_manager.move``` contract by updating the [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/7c1ab7c9e0923e57713e94f23f2b6b321b6b13d8/sui-move-contracts/spoke_manager/sources/spoke_manager.move#L13) to "YOUR_COIN_TYPE". 
+   
+   If you run the [Scripts](#scripts) provided below from ```spoke_manager/scripts/main.ts``` then, it will deploy a Spoke Manager contract for the given coin type.
 
 
 ### Scripts
-Follow the below steps to deploy a cross token on SUI.
+Follow the below steps to deploy a cross chain token on SUI.
+
+
+Install pacakge dependancy for depolyment script.
+``` 
+yarn install 
+```
 
 Create a ```.env``` file and update the configs as shown in below example. 
 
@@ -108,9 +111,8 @@ cp .env.sample .env
 Example of configs inside .env file.
 ```shell 
 MNEMONICS=""
-ADDRESS=""
 NETWORK="testnet"
-ICON_STORAGE="0xc6c58d63863b7a1fdc8e10fa70dc9d8153543e1185f609d05c3af549615dec3f"
+X_STORAGE="0xc6c58d63863b7a1fdc8e10fa70dc9d8153543e1185f609d05c3af549615dec3f"
 SOURCE="centralized-1"
 DESTINATION="cx07300971594d7160a9ec62e4ec68d8fa10b9d9dc"
 ICON_TOKEN= "0x2.icon/cx38cfd5689c7951606d049c04b0a4a549c2910b6b"
@@ -118,13 +120,11 @@ ICON_TOKEN= "0x2.icon/cx38cfd5689c7951606d049c04b0a4a549c2910b6b"
 ```
 Here is a description of the fields:
 
-```MNEMONICS``` is he mnemonics of the wallet that will deploy the contract.
-
-```ADDRESS``` is the address of the wallet that deploys the contract.
+```MNEMONICS``` is the mnemonics of the wallet that will be used to deploy the package.
 
 ```NETWORK``` is the newtwork on which contract is deployed.
 
-```ICON_STORAGE``` is 
+```X_STORAGE``` is an object id of x-call state.
 
 ```SOURCE``` is the relay address of source chain.
 
@@ -133,10 +133,12 @@ Here is a description of the fields:
 ```ICON_TOKEN``` is the hub token address for the token on ICON chain.
 
 
-Now all the setup is done, we are ready to deploy a new cross chain token on SUI. For that run below commands:
+Now all the setup is done, we are ready to deploy a new cross chain token on SUI. For that run below commands from ```spoke_token```  or ```spoke_manager``` directory.
 
 ```
 ts-node scripts/main.ts
 ```
 
-This command will deploy a new Spoke Token/ Spoke Manager Contract on SUI. If you are running a command from ```spoke_token``` directory then, a ```spoke_token``` package will be deployed,(and if the command is ran from ```spoke_manager``` directory then, a ```spoke_manager``` package will be deployed) along with ```demo_coin``` package. It will also run the configuration setups for the deployed ```token``` package.
+This command will deploy a new Spoke Token if command is ran from ```spoke_token``` dir (and Spoke Manager Contract if command is ran from ```spoke_manager``` dir). It will also run the configuration setups for the deployed token package.
+
+Now, you can call ```cross_transfer```  function on the deployed spoke token or spoke manager package. This will transfer the token from source chain to the destination chain.
