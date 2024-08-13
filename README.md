@@ -86,7 +86,7 @@ There are two ways you can implement cross token standarad on SUI, that are list
 
 2. Deploy Spoke Manager
    
-   If you want to deploy a spoke manager for an existing token then, you need to deploy ```spoke_manager/sources/spoke_manager.move``` contract by updating the [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/7c1ab7c9e0923e57713e94f23f2b6b321b6b13d8/sui-move-contracts/spoke_manager/sources/spoke_manager.move#L13) to "YOUR_COIN_TYPE". 
+   If you want to deploy a spoke manager for an existing token then, you need to deploy ```spoke_manager/sources/spoke_manager.move``` contract by updating the [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/ff32ed9e2ac34501dc614b81796dfc101a0aa847/sui-move-contracts/spoke_manager/sources/spoke_manager.move#L14) to "YOUR_COIN_TYPE". 
    
    If you run the [Scripts](#scripts) provided below from ```spoke_manager/scripts/main.ts``` then, it will deploy a Spoke Manager contract for the given coin type.
 
