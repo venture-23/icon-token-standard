@@ -10,8 +10,9 @@ module spoke_manager::spoke_manager{
     use spoke_manager::spoke_manager_utils::{address_to_hex_string, address_from_hex_string};
     use spoke_manager::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
     use spoke_manager::cross_transfer_revert::{Self, XCrossTransferRevert};
-    use spoke_manager::test_coin::{TEST_COIN};
 
+    use test_coin::test_coin::{TEST_COIN};
+    
     use xcall::{main as xcall};
     use xcall::execute_ticket::{Self};
     use xcall::envelope::{Self};
