@@ -2,10 +2,11 @@
 
 [move]
 version = 2
-manifest_digest = "AFD2793401D5A2C01F4C4AF67A95C0BB64734DDEEA18B1CDBCBB86BCE867113D"
-deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
+manifest_digest = "2A6D276BB6F835F12A61FF53431A716742260E09DB08B12D17006D2667680364"
+deps_digest = "060AD7E57DFB13104F21BE5F5C3759D03F0553FC3229247D9A7A6B45F50D03A3"
 dependencies = [
   { name = "Sui" },
+  { name = "test_coin" },
   { name = "xcall" },
 ]
 
@@ -24,6 +25,14 @@ dependencies = [
 [[move.package]]
 name = "sui_rlp"
 source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-testnet", subdir = "contracts/sui/libs/sui_rlp" }
+
+dependencies = [
+  { name = "Sui" },
+]
+
+[[move.package]]
+name = "test_coin"
+source = { local = "../test_coin" }
 
 dependencies = [
   { name = "Sui" },
