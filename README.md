@@ -75,12 +75,15 @@ cd sui-move-contracts/spoke_manager
 ```
 
 
-<!-- You can find an implementation example on how to deploy a spoke_token or a spoke_manager. Go into ```sources/impl``` directory on either token types. There you will find a ```test_coin.move``` contract. This is an example for a demo token on SUI. The token type is ```TEST_COIN```. It is a normal coin type on SUI. So, now if you want to make this token a cross chain token, you have two options to do that: -->
 There are two ways you can implement cross token standarad on SUI, that are listed below:
 
-1. Deploy New Cross Chain Token
+1. Deploy Spoke Token
    
-   If you want to deploy a new cross chain token on SUI. You can just update ```spoke_token/sources/impl/test_coin.move``` contract with your custom functionality that will implement the SUI coin standard [0x2::coin](https://github.com/MystenLabs/sui/blob/main/crates/sui-framework/packages/sui-framework/sources/coin.move). Next you must change coin type on ```spoke_token/sources/spoke_token.move``` to the coin type you are trying to deploy. For example, replace [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/7c1ab7c9e0923e57713e94f23f2b6b321b6b13d8/sui-move-contracts/spoke_token/sources/spoke_token.move#L12) with your "COIN_TYPE" everywhere you find "TEST_COIN" on ```spoke_token.move``` contract.
+   If you are planning to deploy a Spoke Contract for a token from foreign chain on SUI then you can deploy ```spoke_token/sources/spoke_token.move``` contract. 
+
+   First, in ```spoke_token/sources/impl/test_coin.move``` contract you must change the token module name and WITNESS. This contract implements the SUI coin standard [0x2::coin](https://github.com/MystenLabs/sui/blob/main/crates/sui-framework/packages/sui-framework/sources/coin.move). 
+   
+   Next, you must change coin type on ```spoke_token/sources/spoke_token.move``` to the coin type that you deployed in above step. For example, replace [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/7c1ab7c9e0923e57713e94f23f2b6b321b6b13d8/sui-move-contracts/spoke_token/sources/spoke_token.move#L12) with your "COIN_TYPE" from above step, everywhere you find "TEST_COIN" on ```spoke_token.move``` contract.
 
    If you run the [Scripts](#scripts) provided below from ```spoke_token/scripts/main.ts``` then, it will deploy a "YOUR_COIN_TYPE" contract and a Spoke Token contract for the give coin type.
 
@@ -89,6 +92,12 @@ There are two ways you can implement cross token standarad on SUI, that are list
    If you want to deploy a spoke manager for an existing token then, you need to deploy ```spoke_manager/sources/spoke_manager.move``` contract by updating the [COIN_TYPE](https://github.com/venture-23/icon-token-standard/blob/ff32ed9e2ac34501dc614b81796dfc101a0aa847/sui-move-contracts/spoke_manager/sources/spoke_manager.move#L14) to "YOUR_COIN_TYPE". 
    
    If you run the [Scripts](#scripts) provided below from ```spoke_manager/scripts/main.ts``` then, it will deploy a Spoke Manager contract for the given coin type.
+
+Note:
+
+It is recommended that, if you are deploying a new cross chain token on SUI (i.e. on native chain) then the best way to implement cross token standard is using the spoke manager approach. For this, you need to first deploy a token following the SUI coin standard as shown in ```test_coin/sources/test_coin.move``` example then, deploy a Spoke Manager for that token. 
+
+If you wish to depoy a new token using the Spoke Token implemenataion approach then you must add admin controlled mint/burn functionality in ```spoke_token.move``` contract before depoying it. This is because, while configuring the spoke token contract you need to transfer TreasuryCap<> to the Spoke Token contract so the deployer won't have TreasuryCap<> to call mint/burn function later. So if you want that functionality in future, you must add it in spoke token contract where you can get the cap from Config shared object.
 
 
 ### Scripts
@@ -126,9 +135,9 @@ Here is a description of the fields:
 
 ```X_STORAGE``` is an object id of x-call state.
 
-```SOURCE``` is the relay address of source chain.
+```SOURCE``` is the connection address of source chain i.e SUI. To get this address you need to contact x-call team and deploy your own connection address for your Dapp.
 
-```DESTINATION``` is the relay address of destination chain.
+```DESTINATION``` is the connection address of destination chain i.e ICON. You need to deploy your own connection address on ICON.
 
 ```ICON_TOKEN``` is the hub token address for the token on ICON chain.
 
