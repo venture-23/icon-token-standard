@@ -7,16 +7,15 @@ import icon.cross.chain.token.lib.utils.ProtocolConfig;
 import icon.cross.chain.token.lib.utils.SpokeTokenXCall;
 import score.Address;
 import score.Context;
-import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
 import score.annotation.Optional;
 
 import java.math.BigInteger;
+import java.util.Map;
 
 import static icon.cross.chain.token.lib.utils.Check.*;
-import static icon.cross.chain.token.lib.utils.XCallUtils.hasSource;
 
 public class SpokeTokenImpl implements SpokeToken {
     private final static String NAME = "name";
@@ -25,7 +24,7 @@ public class SpokeTokenImpl implements SpokeToken {
     private final static String TOTAL_SUPPLY = "total_supply";
     protected final static String BALANCES = "balances";
     private final static String X_CALL = "x_call";
-    public static final String PROTOCOLS = "protocols";
+    private final static String X_CALL_MANAGER = "x_call_manager";
     private final static String TOKEN_NATIVE_NID = "token_native_nid";
 
     public static String NATIVE_NID;
@@ -39,11 +38,12 @@ public class SpokeTokenImpl implements SpokeToken {
     private final VarDB<BigInteger> totalSupply = Context.newVarDB(TOTAL_SUPPLY, BigInteger.class);
     protected final NetworkAddressDictDB<BigInteger> balances = new NetworkAddressDictDB<>(BALANCES, BigInteger.class);
     protected static final VarDB<Address> xCall = Context.newVarDB(X_CALL, Address.class);
-    DictDB<String, ProtocolConfig> protocols = Context.newDictDB(PROTOCOLS, ProtocolConfig.class);
+    protected static final VarDB<Address> xCallManager = Context.newVarDB(X_CALL_MANAGER, Address.class);
 
 
-    public SpokeTokenImpl(Address _xCall, String nid, String _tokenName, String _symbolName, String _tokenNativeNid, @Optional BigInteger _decimals) {
+    public SpokeTokenImpl(Address _xCall, Address _xCallManager, String nid, String _tokenName, String _symbolName, String _tokenNativeNid, @Optional BigInteger _decimals) {
         xCall.set(_xCall);
+        xCallManager.set(_xCallManager);
         NATIVE_NID = nid;
         this.tokenNativeNid.set(_tokenNativeNid);
         if (this.name.get() == null) {
@@ -105,9 +105,10 @@ public class SpokeTokenImpl implements SpokeToken {
         return xCall.get();
     }
 
+    @SuppressWarnings("unchecked")
     @External(readonly = true)
-    public ProtocolConfig getProtocols(String id) {
-        return protocols.get(id);
+    public Map<String, String[]> getProtocols(String nid) {
+        return (Map<String, String[]>) Context.call(xCallManager.get(), "getProtocols", nid);
     }
 
     @External(readonly = true)
@@ -120,13 +121,6 @@ public class SpokeTokenImpl implements SpokeToken {
     public BigInteger xBalanceOf(String _owner) {
         NetworkAddress address = NetworkAddress.valueOf(_owner);
         return balances.getOrDefault(address, BigInteger.ZERO);
-    }
-
-    @External
-    public void configureProtocols(String nid, String[] sources, String[] destinations) {
-        onlyOwner();
-        ProtocolConfig cfg = new ProtocolConfig(sources, destinations);
-        protocols.set(nid, cfg);
     }
 
     @External
@@ -243,22 +237,11 @@ public class SpokeTokenImpl implements SpokeToken {
 
     protected void verifyProtocols(String _from, @Optional String[] protocols) {
         NetworkAddress from = NetworkAddress.valueOf(_from);
-        String nid = from.net();
+        Context.call(xCallManager.get(), "verifyProtocols", from.net(), protocols);
+    }
 
-        if (nid.equals(NATIVE_NID)) {
-            // Is a rollback
-            return;
-        }
-
-        ProtocolConfig cfg = this.protocols.get(nid);
-        Context.require(cfg != null,  this.name.get() + ": Network is not configured");
-        if (cfg.sources.length == 0) {
-            Context.require(protocols == null || protocols.length == 0, this.name.get() + ": Invalid protocols used to deliver message");
-            return;
-        }
-
-        for (String source : cfg.sources) {
-            Context.require(hasSource(source, protocols),  this.name.get() + ": Invalid protocols used to deliver message");
-        }
+    public void sendCall(BigInteger fee, NetworkAddress to, byte[] data, byte[] rollback) {
+        Map<String, String[]> protocols = getProtocols(to.net());
+        Context.call(fee, xCall.get(), "sendCallMessage", to.toString(), data, rollback, protocols.get(ProtocolConfig.sourcesKey), protocols.get(ProtocolConfig.destinationsKey));
     }
 }

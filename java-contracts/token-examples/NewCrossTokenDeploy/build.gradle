@@ -45,6 +45,7 @@ deployJar {
     password = rootProject.hasProperty('keystorePass') ? "$keystorePass" : ''
     parameters {
         arg("_xCall", "cx15a339fa60bd86225050b22ea8cd4a9d7cd8bb83")
+        arg("_xCallManager", "cx5040180f7b0cd742658cb9050a289eca03083b70")
         arg("_nid", "0x2.icon")
         arg("_tokenName", "Cross Chain Demo Token")
         arg("_symbolName", "CDM")

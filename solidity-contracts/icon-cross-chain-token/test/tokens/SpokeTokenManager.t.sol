@@ -4,10 +4,10 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import "../../library/btp/interfaces/ICallService.sol";
-import "../../src/mock/PlayToken.sol";
-import "../../src/tokens/SpokeTokenManager.sol";
-import "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "multi-token-standard/library/interfaces/ICallService.sol";
+import "@multi-token-standard/mock/PlayToken.sol";
+import "@multi-token-standard/tokens/SpokeTokenManager.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract SpokeTokenManagerTest is Test {
     using Strings for string;
@@ -22,11 +22,12 @@ contract SpokeTokenManagerTest is Test {
 
     event LogData(address sender, uint value, bytes data);
 
+    IXCallManager public xCallManager;
     PlayToken token;
     SpokeTokenManager spokeTokenManager;
     ICallService public xCall;
     string public constant nid = "0x1.eth";
-    string public constant ICON_BNUSD = "0x1.icon/cx1";
+    string public constant ICON_TOKEN = "0x1.icon/cx1";
     string[] defaultSources = ["0x05", "0x06"];
     string[] defaultDestinations = ["cx2", "cx3"];
     string[] wrongDestinations = ["cx4", "cx5", "cx6"];
@@ -34,10 +35,33 @@ contract SpokeTokenManagerTest is Test {
 
     function setUp() public {
         xCall = ICallService(address(0x01));
+
+        xCallManager = IXCallManager(address(0x02));
         vm.mockCall(
             address(xCall),
             abi.encodeWithSelector(xCall.getNetworkAddress.selector),
             abi.encode(nid.networkAddress(address(xCall).toString()))
+        );
+        vm.mockCall(
+            address(xCallManager),
+            abi.encodeWithSelector(xCallManager.getProtocols.selector),
+            abi.encode(
+                IXCallManager.Protocols(defaultSources, defaultDestinations)
+          
+            )
+        );
+        vm.mockCall(
+            address(xCallManager),
+            abi.encodeWithSelector(xCallManager.verifyProtocols.selector),
+            abi.encode(false)
+        );
+        vm.mockCall(
+            address(xCallManager),
+            abi.encodeWithSelector(
+                xCallManager.verifyProtocols.selector,
+                defaultSources
+            ),
+            abi.encode(true)
         );
 
         token = new PlayToken(1000);
@@ -52,9 +76,8 @@ contract SpokeTokenManagerTest is Test {
                         spokeTokenManager.initialize.selector,
                         address(token),
                         address(xCall),
-                        ICON_BNUSD,
-                        defaultSources,
-                        defaultDestinations
+                        ICON_TOKEN,
+                        address(xCallManager)
                     )
                 )
             )
@@ -107,7 +130,7 @@ contract SpokeTokenManagerTest is Test {
             fee,
             abi.encodeWithSelector(
                 xCall.sendCallMessage.selector,
-                ICON_BNUSD,
+                ICON_TOKEN,
                 xcallMessage.encodeCrossTransfer(),
                 rollback.encodeCrossTransferRevert(),
                 defaultSources,
