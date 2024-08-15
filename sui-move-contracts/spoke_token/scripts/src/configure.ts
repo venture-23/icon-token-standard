@@ -14,8 +14,6 @@ export async function configureSpokeToken(
     witness_object: string,
     version: number,
     icon_token: string,
-    sources: Array<string>,
-    destination: Array<string>,
     treasuryCap: string
 ) {
     const tx = new TransactionBlock();

@@ -6,23 +6,21 @@ dotenv.config();
 
 
 const STORAGE = process.env.X_STORAGE || "";
-const SOURCE = process.env.SOURCE || "";
-const DESTINATION = process.env.DESTINATION || "";
+const MANAGER_CONFIG = process.env.MANAGER_CONFIG || "";
 const ICON_TOKEN = process.env.ICON_TOKEN || "";
 
 async function main() {
     const result = await deploy();
-    console.log(result);
+    console.log("result: ", result);
     
     await configureSpokeManager(
         result?.packageId, 
-        result?.AdminCap, 
+        result?.AdminCap,
         STORAGE, 
+        MANAGER_CONFIG, 
         result?.WitnessManager, 
         1, 
         ICON_TOKEN,
-        [SOURCE],
-        [DESTINATION],
     )
 }
 
