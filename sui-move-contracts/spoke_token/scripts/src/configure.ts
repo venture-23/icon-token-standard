@@ -27,8 +27,6 @@ export async function configureSpokeToken(
             tx.object(witness_object),
             tx.pure.u64(version),
             tx.pure.string(icon_token),
-            tx.pure(sources),
-            tx.pure(destination),
             tx.object(treasuryCap),
         ]
     });
