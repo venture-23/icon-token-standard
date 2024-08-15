@@ -8,16 +8,16 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-import "../../library/btp/utils/NetworkAddress.sol";
-import "../../library/btp/utils/Strings.sol";
-import "../../library/btp/utils/ParseAddress.sol";
-import "../../library/btp/interfaces/ICallService.sol";
-import "../../library/btp/interfaces/ICallServiceReceiver.sol";
+import "multi-token-standard/library/utils/NetworkAddress.sol";
+import "multi-token-standard/library/utils/Strings.sol";
+import "multi-token-standard/library/utils/ParseAddress.sol";
+import "multi-token-standard/library/interfaces/ICallService.sol";
+import "multi-token-standard/library/interfaces/ICallServiceReceiver.sol";
+import "multi-token-standard/library/interfaces/IXCallManager.sol";
 
 import "./Messages.sol";
 import "./RLPEncodeStruct.sol";
 import "./RLPDecodeStruct.sol";
-import "../utils/SpokeUtils.sol";
 
 contract SpokeToken is
     ERC20Upgradeable,
@@ -37,11 +37,8 @@ contract SpokeToken is
     string public xCallNetworkAddress;
     string public nid;
     string public iconTokenAddress;
-    string[] public sources;
-    string[] public destinations;
-
-    event ProtocolsConfigured(string[] sources, string[] destinations);
-
+    address public xCallManager;
+    
     constructor() {
         _disableInitializers();
     }
@@ -51,19 +48,14 @@ contract SpokeToken is
         string calldata symbol,
         address _xCall,
         string memory _iconTokenAddress,
-        string[] memory _source,
-        string[] memory _destinatons
+        address _xCallManager
     ) public initializer {
-        require(
-            _xCall != address(0),
-            "Zero address not allowed"
-        );
+        require(_xCall != address(0) || _xCallManager != address(0), "Zero address not allowed");
         xCall = _xCall;
         xCallNetworkAddress = ICallService(xCall).getNetworkAddress();
         nid = xCallNetworkAddress.nid();
         iconTokenAddress = _iconTokenAddress;
-        sources = _source;
-        destinations = _destinatons;
+        xCallManager = _xCallManager;
         __ERC20_init(name, symbol);
         __Ownable_init(msg.sender);
     }
@@ -111,57 +103,47 @@ contract SpokeToken is
             data
         );
 
-        Messages.XCrossTransferRevert memory rollback = Messages
-            .XCrossTransferRevert(msg.sender, value);
+        Messages.XCrossTransferRevert memory rollback = Messages.XCrossTransferRevert(
+            msg.sender,
+            value
+        );
 
+        IXCallManager.Protocols memory protocols = IXCallManager(xCallManager)
+            .getProtocols();
         ICallService(xCall).sendCallMessage{value: msg.value}(
             iconTokenAddress,
             xcallMessage.encodeCrossTransfer(),
             rollback.encodeCrossTransferRevert(),
-            sources,
-            destinations
+            protocols.sources,
+            protocols.destinations
         );
+
     }
 
-    function handleCallMessage(
+
+  function handleCallMessage(
         string calldata from,
         bytes calldata data,
         string[] calldata protocols
     ) external onlyCallService {
-        require(SpokeUtils.verifyProtocolsUnordered(sources, protocols), "Protocol Mismatch");
+        require(
+            IXCallManager(xCallManager).verifyProtocols(protocols),
+            "Protocol Mismatch"
+        );
+
         string memory method = data.getMethod();
         if (method.compareTo(Messages.CROSS_TRANSFER)) {
-            require(from.compareTo(iconTokenAddress), "onlyiconTokenAddress");
+            require(from.compareTo(iconTokenAddress), "onlyIconTokenAddress");
             Messages.XCrossTransfer memory message = data.decodeCrossTransfer();
-            (, string memory to) = message.to.parseNetworkAddress();
-            _mint(to.parseAddress("Invalid account"), message.value);
+            (,string memory to) = message.to.parseNetworkAddress();
+            _mint(to.parseAddress("Invalid address"), message.value);
         } else if (method.compareTo(Messages.CROSS_TRANSFER_REVERT)) {
             require(from.compareTo(xCallNetworkAddress), "onlyCallService");
-            Messages.XCrossTransferRevert memory message = data
-                .decodeCrossTransferRevert();
+            Messages.XCrossTransferRevert memory message = data.decodeCrossTransferRevert();
             _mint(message.to, message.value);
         } else {
             revert("Unknown message type");
         }
-    }
-
-    function setProtocols(
-        string[] memory _sources,
-        string[] memory _destinations
-    ) external onlyOwner {
-        require(
-            !SpokeUtils.hasDuplicates(_sources),
-            "Source protcols cannot contain duplicates"
-        );
-        require(
-            !SpokeUtils.hasDuplicates(_destinations),
-            "Destination protcols cannot contain duplicates"
-        );
-        sources = _sources;
-        destinations = _destinations;
-
-        emit ProtocolsConfigured(_sources, _destinations);
-
     }
 
 }

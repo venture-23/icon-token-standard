@@ -2,7 +2,7 @@
 pragma solidity >=0.8.0;
 pragma abicoder v2;
 
-import "../../library/btp/utils/RLPEncode.sol";
+import "multi-token-standard/library/utils/RLPEncode.sol";
 import "./Messages.sol";
 
 library RLPEncodeStruct {
