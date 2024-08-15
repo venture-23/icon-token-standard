@@ -4,13 +4,11 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import "../../src/tokens/SpokeToken.sol";
-import "../../src/tokens/Messages.sol";
+import "@multi-token-standard/tokens/SpokeToken.sol";
+import "@multi-token-standard/tokens/Messages.sol";
 
-import "../../library/btp/interfaces/ICallService.sol";
-import "../../src/interfaces/IXCallManager.sol";
-
-import "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "multi-token-standard/library/interfaces/ICallService.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 
 
@@ -29,7 +27,7 @@ contract SpokeTokenTest is Test {
     IXCallManager public xCallManager;
     ICallService public xCall;
     string public constant nid = "0x1.eth";
-    string public constant ICON_BNUSD = "0x1.icon/cx1";
+    string public constant ICON_TOKEN = "0x1.icon/cx1";
     string[] defaultSources = ["0x05", "0x06"];
     string[] defaultDestinations = ["cx2", "cx3"];
     string public constant name = "SPTOKEN";
@@ -78,9 +76,8 @@ contract SpokeTokenTest is Test {
                         name, 
                         symbol,
                         address(xCall),
-                        ICON_BNUSD,
-                        defaultSources,
-                        defaultDestinations
+                        ICON_TOKEN,
+                        address(xCallManager)
                     )
                 )
             )
@@ -118,7 +115,7 @@ contract SpokeTokenTest is Test {
             fee,
             abi.encodeWithSelector(
                 xCall.sendCallMessage.selector,
-                ICON_BNUSD,
+                ICON_TOKEN,
                 xcallMessage.encodeCrossTransfer(),
                 rollback.encodeCrossTransferRevert(),
                 defaultSources,
@@ -165,7 +162,7 @@ contract SpokeTokenTest is Test {
             fee,
             abi.encodeWithSelector(
                 xCall.sendCallMessage.selector,
-                ICON_BNUSD,
+                ICON_TOKEN,
                 xcallMessage.encodeCrossTransfer(),
                 rollback.encodeCrossTransferRevert(),
                 defaultSources,
@@ -215,7 +212,7 @@ contract SpokeTokenTest is Test {
         );
 
         // Assert
-        vm.expectRevert("onlyiconTokenAddress");
+        vm.expectRevert("onlyIconTokenAddress");
 
         // Act
         spToken.handleCallMessage(
@@ -257,7 +254,7 @@ contract SpokeTokenTest is Test {
 
         // Act
         spToken.handleCallMessage(
-            ICON_BNUSD,
+            ICON_TOKEN,
             message.encodeCrossTransferRevert(),
             defaultSources
         );
@@ -273,7 +270,7 @@ contract SpokeTokenTest is Test {
         );
 
         spToken.handleCallMessage(
-            ICON_BNUSD,
+            ICON_TOKEN,
             message.encodeCrossTransfer(),
             defaultSources
         );
