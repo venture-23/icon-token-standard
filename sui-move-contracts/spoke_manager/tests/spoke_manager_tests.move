@@ -17,7 +17,9 @@ module spoke_manager::spoke_manager_tests {
 
     use spoke_manager::spoke_manager::{Self, Config, AdminCap, WitnessCarrier, cross_transfer};
     use spoke_manager::test_coin::{TEST_COIN};
-    use spoke_manager::cross_transfer::{wrap_hub_transfer, encode};
+    use balanced::cross_transfer::{wrap_cross_transfer, encode};
+    use balanced::xcall_manager::{Self, Config as XcallManagerConfig, WitnessCarrier as XcallManagerWitnessCarrier};
+
     
 
     const ADMIN: address = @0xBABE;
@@ -42,13 +44,25 @@ module spoke_manager::spoke_manager_tests {
         let carrier = scenario.take_from_sender<WitnessCarrier>();
         scenario = init_xcall_state(admin, scenario);
         scenario.next_tx(admin);
+        
+        xcall_manager::init_test(scenario.ctx());
+        scenario.next_tx(admin);
+        
+        let xm_carrier = scenario.take_from_sender<XcallManagerWitnessCarrier>();
         let xcall_state= scenario.take_shared<XCallState>();
         let sources = vector[string::utf8(b"centralized-1")];
         let destinations = vector[string::utf8(b"icon/hx234"), string::utf8(b"icon/hx334")];
-        spoke_manager::configure(&admin_cap, &xcall_state, carrier,1 ,string::utf8(ICON_BnUSD),  sources, destinations, scenario.ctx());
+        let manager_admin_cap = scenario.take_from_sender<xcall_manager::AdminCap>();
+        xcall_manager::configure(&manager_admin_cap, &xcall_state, xm_carrier, string::utf8(ICON_BnUSD),  sources, destinations, 2, scenario.ctx());
+        scenario.next_tx(admin);
+
+        let xcall_manager_config: XcallManagerConfig = scenario.take_shared<XcallManagerConfig>();
+        spoke_manager::configure(&admin_cap, &xcall_state, &xcall_manager_config, carrier, 1, string::utf8(ICON_BnUSD), scenario.ctx());
         scenario.next_tx(admin);
         test_scenario::return_shared<XCallState>(xcall_state);
+        test_scenario::return_shared<XcallManagerConfig>(xcall_manager_config);
         scenario.return_to_sender(admin_cap);
+        scenario.return_to_sender(manager_admin_cap);
         scenario
     }
 
@@ -85,10 +99,11 @@ module spoke_manager::spoke_manager_tests {
         let deposited = coin::mint_for_testing<TEST_COIN>(token_amount, scenario.ctx());
 
         let mut xcall_state= scenario.take_shared<XCallState>();
-    
-        cross_transfer(&mut config,&mut xcall_state,  fee, deposited, TO.to_string(), option::none(), scenario.ctx());
+        let xcall_manager_config: xcall_manager::Config  = scenario.take_shared<xcall_manager::Config>();
+        cross_transfer(&mut config, &xcall_manager_config, &mut xcall_state,  fee, deposited, TO.to_string(), option::none(), scenario.ctx());
         test_scenario::return_shared( config);
         test_scenario::return_shared(xcall_state);
+        test_scenario::return_shared(xcall_manager_config);
         scenario.end();
     }
 
@@ -98,7 +113,7 @@ module spoke_manager::spoke_manager_tests {
         scenario.next_tx(ADMIN);
 
         let token_amount = math::pow(10, 18) as u128;
-        let message = wrap_hub_transfer(string::utf8(FROM_ADDRESS),  string::utf8(TO_ADDRESS), token_amount, b"");
+        let message = wrap_cross_transfer(string::utf8(FROM_ADDRESS),  string::utf8(TO_ADDRESS), token_amount, b"");
         let data = encode(&message, b"xCrossTransfer");
         
         scenario = setup_connection( scenario, ADMIN);
@@ -120,12 +135,13 @@ module spoke_manager::spoke_manager_tests {
         
         let fee_amount = math::pow(10, 9 + 4);
         let fee = coin::mint_for_testing<SUI>(fee_amount, scenario.ctx());
-        spoke_manager::execute_call(&mut config, &mut xcall_state, fee, 1, data, scenario.ctx());
+        let xcall_manager_config: xcall_manager::Config  = scenario.take_shared<xcall_manager::Config>();
+        spoke_manager::execute_call(&mut config, &xcall_manager_config, &mut xcall_state, fee, 1, data, scenario.ctx());
 
         test_scenario::return_shared(config);
         test_scenario::return_shared(xcall_state);
         scenario.return_to_sender(conn_cap);
-        
+        test_scenario::return_shared(xcall_manager_config);
         scenario.end();
     }
 
@@ -148,11 +164,13 @@ module spoke_manager::spoke_manager_tests {
         let fee_amount = math::pow(10, 9 + 4);
         let fee = coin::mint_for_testing<SUI>(fee_amount, scenario.ctx());
         let deposited = coin::mint_for_testing<TEST_COIN>(token_amount, scenario.ctx());
-        cross_transfer(&mut config,&mut xcall_state,  fee, deposited, TO.to_string(), option::none(), scenario.ctx());
+        let xcall_manager_config: xcall_manager::Config  = scenario.take_shared<xcall_manager::Config>();
+        cross_transfer(&mut config, &xcall_manager_config, &mut xcall_state,  fee, deposited, TO.to_string(), option::none(), scenario.ctx());
         xcall::handle_message(&mut xcall_state, &conn_cap, from_nid, message, scenario.ctx());       
         spoke_manager::execute_rollback(&mut config,  &mut xcall_state, 1, scenario.ctx());
         test_scenario::return_shared(config);
         test_scenario::return_shared(xcall_state);
+        test_scenario::return_shared(xcall_manager_config);
         scenario.return_to_sender(conn_cap);
         scenario.end();
     }

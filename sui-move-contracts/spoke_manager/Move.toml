@@ -6,7 +6,7 @@ edition = "2024.beta"  # edition = "legacy" to use legacy (pre-2024) Move
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
-xcall = { git = "https://github.com/icon-project/xcall-multi.git", subdir = "contracts/sui/xcall", rev = "feat/sui-xcall-testnet" }
+balanced = { git = "https://github.com/balancednetwork/balanced-move-contracts.git", rev = "main" }
 test_coin = { local = "../test_coin" }
 
 # For remote import, use the `{ git = "...", subdir = "...", rev = "..." }`.

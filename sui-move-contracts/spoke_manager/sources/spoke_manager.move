@@ -8,9 +8,10 @@ module spoke_manager::spoke_manager{
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
     
-    use spoke_manager::spoke_manager_utils::{address_to_hex_string, address_from_hex_string};
-    use spoke_manager::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
-    use spoke_manager::cross_transfer_revert::{Self, XCrossTransferRevert};
+    use balanced::balanced_utils::{address_to_hex_string, address_from_hex_string};
+    use balanced::cross_transfer::{Self, wrap_cross_transfer, XCrossTransfer};
+    use balanced::cross_transfer_revert::{Self, XCrossTransferRevert};
+    use balanced::xcall_manager::{Self, Config as XcallManagerConfig};
 
     use test_coin::test_coin::{TEST_COIN};
     
@@ -39,7 +40,7 @@ module spoke_manager::spoke_manager{
     // Error: The balance to be released exceeds the locked balance.
     const EBalanceExceeded: u64 = 5;
 
-    /// Constants
+    // === Constants ===
     
     /// The current version of the configuration.
     const CURRENT_VERSION: u64 = 1;
@@ -78,12 +79,10 @@ module spoke_manager::spoke_manager{
         balance: LockedBalance, 
         // Identifier capability for managing cross-chain calls.
         id_cap: IDCap,
+        // Cross-call manager ID used for managing configs: sources & destinations.
+        xcall_manager_id: ID, 
         // Cross-call ID used for tracking transactions.
-        xcall_id: ID, 
-        // Source chain identifiers.
-        sources: vector<String>,
-        // Destination chain identifiers.
-        destinations: vector<String>, 
+        xcall_id: ID,
     }
 
     /// Initializes the module by creating and transferring 
@@ -99,41 +98,26 @@ module spoke_manager::spoke_manager{
         }, ctx.sender());
     }    
 
-    /// Sets the source and destination chain IDs in the provided `Config`.
-    ///
-    /// Only callable by the holder of `AdminCap`.
-    /// T: Is this function really neeeded? why?
-    public fun set_protocol(
-        _: &mut AdminCap, 
-        config: &mut Config, 
-        sources: vector<String>, 
-        destinations: vector<String>,
-    ){
-        vector::append(&mut config.sources, sources);
-        vector::append(&mut config.destinations, destinations);
-    }
-
     /// Configures the cross-chain setup including registering the dApp and initializing balances.
     ///
     /// - `storage`: The storage object used for managing state.
+    /// - `xcall_manager_config`: The config for xcall manager (sources & destinations).
     /// - `witness_carrier`: The carrier object containing the witness.
     /// - `version`: The version of the configuration being set.
     /// - `icon_hub`: The identifier for the hub managing cross-chain transactions.
-    /// - `sources`: Source chain identifiers.
-    /// - `destinations`: Destination chain identifiers.
     entry fun configure(
         _: &AdminCap,
         storage: &Storage, 
+        xcall_manager_config: &XcallManagerConfig,
         witness_carrier: WitnessCarrier, 
         version: u64,
         icon_hub: String,
-        sources: vector<String>,
-        destinations: vector<String>,
         ctx: &mut TxContext
     ){
         let w = get_witness(witness_carrier);
         let id_cap =   xcall::register_dapp(storage, w, ctx);
         let xcall_id = xcall_state::get_id_cap_xcall(&id_cap);
+        let xcall_manager_id = xcall_manager::get_id(xcall_manager_config);
 
         let l_balance = LockedBalance {
             id: object::new(ctx),
@@ -146,9 +130,8 @@ module spoke_manager::spoke_manager{
             balance: l_balance,
             icon_hub,
             id_cap,
+            xcall_manager_id,
             xcall_id,
-            sources,
-            destinations,
         };
         transfer::share_object(config);
     }
@@ -156,13 +139,15 @@ module spoke_manager::spoke_manager{
     /// Handles a cross-chain transfer, locking the transferred amount and sending a wrapped message.
     ///
     /// - `config`: The configuration object containing the state.
+    /// - `xcall_manager_config`: The configuration object containing the state of xcall manager.
     /// - `x_ctx`: The storage object used for managing state.
     /// - `fee`: The fee to be paid for the transfer.
     /// - `token`: The token being transferred.
     /// - `to`: The destination address.
     /// - `data`: Optional data to be included with the transfer.
-    public entry fun cross_transfer(
+    entry fun cross_transfer(
         config: &mut Config,
+        xcall_manager_config: &XcallManagerConfig,
         x_ctx: &mut Storage,
         fee: Coin<SUI>,
         token: Coin<TEST_COIN>,
@@ -182,32 +167,34 @@ module spoke_manager::spoke_manager{
         let balance = coin::into_balance(token);
         balance::join(&mut l_balance.balance, balance);
 
-        let x_message = wrap_hub_transfer(
+        let x_message = wrap_cross_transfer(
             from_address,
             to,
             translate_outgoing_amount(amount),
             message_data
         );
-
+        let (sources, destinations) = xcall_manager::get_protocals(xcall_manager_config);
         let x_rollback  = cross_transfer_revert::wrap_cross_transfer_revert(sender, amount);
         let x_encoded_msg = cross_transfer::encode(&x_message, CROSS_TRANSFER);
         let rollback = cross_transfer_revert::encode(&x_rollback, CROSS_TRANSFER_REVERT);
-        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, config.sources, config.destinations);
+        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, sources, destinations);
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_hub, envelope::encode(&envelope), ctx);
     }
 
     /// Executes a call message, verifying the protocols and releasing locked balances if valid.
     ///
     /// - `config`: The configuration object containing the state.
+    /// - `xcall_manager_config`: The configuration object containing the state of xcall manager.
     /// - `x_ctx`: The storage object used for managing state.
     /// - `fee`: The fee to be paid for executing the call.
     /// - `request_id`: The ID of the request being executed.
     /// - `data`: The data associated with the call.
-    public entry fun execute_call(
+    entry fun execute_call(
         config: &mut Config,
+        xcall_manager_config: &XcallManagerConfig,
         x_ctx: &mut Storage,
         fee: Coin<SUI>,
-        request_id:u128,
+        request_id: u128,
         data: vector<u8>,
         ctx: &mut TxContext,
     ){
@@ -217,7 +204,7 @@ module spoke_manager::spoke_manager{
         let from = execute_ticket::from(&ticket);
         let protocols = execute_ticket::protocols(&ticket);
 
-        let verified = verify_protocols(config, protocols);
+        let verified = xcall_manager::verify_protocols(xcall_manager_config, &protocols);
         let method: vector<u8> = cross_transfer::get_method(&msg);
 
         if( verified && method == CROSS_TRANSFER && from == network_address::from_string(config.icon_hub)){
@@ -244,7 +231,7 @@ module spoke_manager::spoke_manager{
     /// - `config`: The configuration object containing the state.
     /// - `xcall`: The storage object used for managing state.
     /// - `sn`: The sequence number of the rollback request.
-    public entry fun execute_rollback(
+    entry fun execute_rollback(
         config: &mut Config, 
         xcall: &mut Storage, 
         sn: u128, 
@@ -277,11 +264,11 @@ module spoke_manager::spoke_manager{
     public entry fun execute_force_rollback(
         config: &Config, 
         _: &AdminCap,  
-        xcall:&mut Storage, 
-        fee:Coin<SUI>, 
-        request_id:u128, 
-        data:vector<u8>, 
-        ctx:&mut TxContext
+        xcall: &mut Storage, 
+        fee: Coin<SUI>, 
+        request_id: u128, 
+        data: vector<u8>, 
+        ctx: &mut TxContext
     ){
         validate_version(config);
         let ticket = xcall::execute_call(xcall, get_idcap(config), request_id, data, ctx);
@@ -292,12 +279,10 @@ module spoke_manager::spoke_manager{
     ///
     /// - `self`: The configuration object to be migrated.
     /// - `UpgradeCap`: The upgrade capability required to perform this operation.
-    entry fun migrate(self: &mut Config, _: &UpgradeCap){
+    entry fun migrate(_: &UpgradeCap, self: &mut Config){
         assert!(get_version(self) < CURRENT_VERSION, ENotUpgrade);
         set_version(self, CURRENT_VERSION);
     }
-
-
 
     /// Updates the hub token used for cross-chain transactions.
     ///
@@ -327,33 +312,8 @@ module spoke_manager::spoke_manager{
         config.version
     }
 
-    // === Private Helpers ===
 
-    /// Verifies that the provided protocols match the configuration's expected protocols.
-    public fun verify_protocols(config: &Config, protocols: vector<String>): bool{
-        validate_version(config);
-        verify_protocols_unordered(config.sources, protocols)
-    }
-
-    /// Helper function to verify protocols without considering order.
-    fun verify_protocols_unordered(array1: vector<String>, array2: vector<String>): bool{
-        let len  =  vector::length(&array1);
-        if(len != vector::length(&array2)){
-            false
-        } else{
-            let mut matched = true;
-            let mut i = 0;
-            while(i < len){
-                let protocol = vector::borrow(&array2, i);
-                if (!vector::contains(&array1, protocol)){
-                    matched = false;
-                    break
-                };
-                i = i +1;
-            };
-            matched
-        }
-    }
+    // ==== Private ====
 
     /// Retrieves a mutable reference to the locked balance within the configuration.
     fun get_locked_bal_mut(config: &mut Config): &mut LockedBalance{
@@ -372,22 +332,23 @@ module spoke_manager::spoke_manager{
         config.version = version
     }
 
-
     /// Translates an outgoing amount from u64 to u128.
     fun translate_outgoing_amount(amount: u64): u128 {
         let multiplier = math::pow(10, 9) as u128;
         (amount as u128) * multiplier 
     }
 
-    
+    /// Translates an imcoming amount from u128 to u64.
     fun translate_incoming_amount(amount: u128): u64{
         (amount / (math::pow(10,9) as u128)) as u64
     }
 
+    /// Validate tge versioning of Config
     fun validate_version(self: &Config){
         assert!(self.version == CURRENT_VERSION, EWrongVersion);
     }
     
+    /// Initialize for test scenario
     #[test_only]
     public fun init_test(ctx: &mut TxContext) {
         init(ctx)

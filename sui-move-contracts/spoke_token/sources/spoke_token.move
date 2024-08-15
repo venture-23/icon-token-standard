@@ -6,10 +6,11 @@ module spoke_token::spoke_token {
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
     
-    use spoke_token::spoke_token_utils::{address_to_hex_string, address_from_hex_string};
-    use spoke_token::cross_transfer::{Self, wrap_hub_transfer, XCrossTransfer};
-    use spoke_token::cross_transfer_revert::{Self, XCrossTransferRevert};
-    use spoke_token::test_coin::{Self, TEST_COIN};
+    use balanced::balanced_utils::{address_to_hex_string, address_from_hex_string};
+    use balanced::cross_transfer::{Self, wrap_cross_transfer, XCrossTransfer};
+    use balanced::cross_transfer_revert::{Self, XCrossTransferRevert};
+    use balanced::xcall_manager::{Self, Config as XcallManagerConfig};
+    use test_coin::test_coin::{TEST_COIN};
 
     use xcall::{main as xcall};
     use xcall::execute_ticket::{Self};
@@ -49,9 +50,8 @@ module spoke_token::spoke_token {
         version: u64,
         icon_token: String,
         id_cap: IDCap,
+        xcall_manager_id: ID, 
         xcall_id: ID,
-        sources: vector<String>,
-        destinations: vector<String>,
         treasury_cap: TreasuryCap<TEST_COIN>,
     }
 
@@ -66,33 +66,20 @@ module spoke_token::spoke_token {
         }, ctx.sender());
     }    
 
-    /// Protected function
-    /// Set sources  chain ids in config
-    /// Set destinations chain ids in config
-    public fun set_protocol(
-        _: &mut AdminCap, 
-        config: &mut Config, 
-        sources: vector<String>, 
-        destinations: vector<String>,
-    ){
-        vector::append(&mut config.sources, sources);
-        vector::append(&mut config.destinations, destinations);
-    }
-
     entry fun configure(
         _: &AdminCap,
         storage: &Storage, 
         witness_carrier: WitnessCarrier, 
         version: u64,
-        icon_token: String, 
-        sources: vector<String>,
-        destinations: vector<String>,
+        icon_token: String,
+        xcall_manager_config: &XcallManagerConfig,
         treasury_cap: TreasuryCap<TEST_COIN>,
         ctx: &mut TxContext,
     ){
         let w = get_witness(witness_carrier);
         let id_cap =   xcall::register_dapp(storage, w, ctx);
         let xcall_id = xcall_state::get_id_cap_xcall(&id_cap);
+        let xcall_manager_id = xcall_manager::get_id(xcall_manager_config);
         
         transfer::share_object(Config{
             id: object::new(ctx),
@@ -100,15 +87,15 @@ module spoke_token::spoke_token {
             icon_token,
             id_cap,
             xcall_id,
-            sources,
-            destinations,
+            xcall_manager_id,
             treasury_cap,
         });
     }
 
-    public entry fun cross_transfer(
+    entry fun cross_transfer(
         config: &mut Config,
         x_ctx: &mut Storage,
+        xcall_manager_config: &XcallManagerConfig,
         fee: Coin<SUI>,
         token: Coin<TEST_COIN>,
         to: String,
@@ -124,23 +111,25 @@ module spoke_token::spoke_token {
         let sender = ctx.sender();
         let from_address = address_to_hex_string(&sender);
 
-        let x_message = wrap_hub_transfer(
+        let x_message = wrap_cross_transfer(
             from_address,
             to,
             translate_outgoing_amount(amount),
             message_data
         );
+        let (sources, destinations) = xcall_manager::get_protocals(xcall_manager_config);
 
         let x_rollback  = cross_transfer_revert::wrap_cross_transfer_revert(sender, amount);
         let x_encoded_msg = cross_transfer::encode(&x_message, CROSS_TRANSFER);
         let rollback = cross_transfer_revert::encode(&x_rollback, CROSS_TRANSFER_REVERT);
-        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, config.sources, config.destinations);
+        let envelope = envelope::wrap_call_message_rollback(x_encoded_msg, rollback, sources, destinations);
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
 
 
-    public entry fun execute_call(
+    entry fun execute_call(
         config: &mut Config,
+        xcall_manager_config: &XcallManagerConfig,
         x_ctx: &mut Storage,
         fee: Coin<SUI>,
         request_id:u128,
@@ -153,7 +142,7 @@ module spoke_token::spoke_token {
         let from = execute_ticket::from(&ticket);
         let protocols = execute_ticket::protocols(&ticket);
 
-        let verified = verify_protocols(config, protocols);
+        let verified = xcall_manager::verify_protocols(xcall_manager_config, &protocols);
         let method: vector<u8> = cross_transfer::get_method(&msg);
 
         if( verified && method == CROSS_TRANSFER && from == network_address::from_string(config.icon_token)){
@@ -161,14 +150,15 @@ module spoke_token::spoke_token {
             let string_to = cross_transfer::to(&message);
             let to  = network_address::addr(&network_address::from_string(string_to));
             let amount = translate_incoming_amount(cross_transfer::value(&message));
-            test_coin::mint(get_treasury_cap_mut(config), amount, address_from_hex_string(&to),ctx);
+            let coins = coin::mint(get_treasury_cap_mut(config), amount, ctx);
+            transfer::public_transfer(coins, address_from_hex_string(&to),);
             xcall::execute_call_result(x_ctx, ticket, true, fee, ctx);
         }else {
             xcall::execute_call_result(x_ctx, ticket, false, fee, ctx);
         }
     }
 
-    public entry fun execute_rollback(
+    entry fun execute_rollback(
         config: &mut Config, 
         xcall: &mut Storage,
         sn: u128, 
@@ -186,7 +176,8 @@ module spoke_token::spoke_token {
         let message: XCrossTransferRevert = cross_transfer_revert::decode(&msg);
         let to = cross_transfer_revert::to(&message);
         let amount: u64 = cross_transfer_revert::value(&message);
-        test_coin::mint(get_treasury_cap_mut(config), amount, to, ctx);
+        let coins = coin::mint(get_treasury_cap_mut(config), amount, ctx);
+        transfer::public_transfer(coins, to);
         xcall::execute_rollback_result(xcall,ticket,true)
     }
 
@@ -227,31 +218,6 @@ module spoke_token::spoke_token {
 
     public fun get_version(config: &Config): u64{
         config.version
-    }
-
-    // Private actions
-    public fun verify_protocols(config: &Config, protocols: vector<String>): bool{
-        validate_version(config);
-        verify_protocols_unordered(config.sources, protocols)
-    }
-
-    fun verify_protocols_unordered(array1: vector<String>, array2: vector<String>): bool{
-        let len  =  vector::length(&array1);
-        if(len != vector::length(&array2)){
-            false
-        } else{
-            let mut matched = true;
-            let mut i = 0;
-            while(i < len){
-                let protocol = vector::borrow(&array2, i);
-                if (!vector::contains(&array1, protocol)){
-                    matched = false;
-                    break
-                };
-                i = i +1;
-            };
-            matched
-        }
     }
 
     fun get_treasury_cap_mut(config: &mut Config): &mut TreasuryCap<TEST_COIN>{
