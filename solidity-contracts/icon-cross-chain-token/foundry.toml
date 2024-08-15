@@ -4,3 +4,9 @@ out = "out"
 libs = ["lib"]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[etherscan]
+fuji = { key = "${SNOWSCAN_API_KEY}"}
+
+[rpc_endpoints]
+fuji = "${FUJI_RPC_URL}"
