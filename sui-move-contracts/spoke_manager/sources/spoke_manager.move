@@ -1,4 +1,5 @@
-/// Module: spoke_token
+/// Module for managing cross-chain transfers, including locking balances, 
+/// handling configuration, and executing cross-chain transfers and rollbacks.
 module spoke_manager::spoke_manager{
     use sui::math::{Self};
     use std::string::String;
@@ -23,47 +24,70 @@ module spoke_manager::spoke_manager{
 
     // === Errors ===
 
+    /// Error: The amount specified is less than zero.
     const EAmountLessThanZero: u64 = 1;
 
+    /// Error: The configuration version is incorrect.
     const EWrongVersion: u64 = 2;
 
+    /// Error: The current configuration is not eligible for an upgrade.
     const ENotUpgrade: u64 = 3;
 
+    /// Error: The message type is unknown or unrecognized.
     const UnknownMessageType: u64 = 4;
 
+    // Error: The balance to be released exceeds the locked balance.
     const EBalanceExceeded: u64 = 5;
 
     /// Constants
+    
+    /// The current version of the configuration.
     const CURRENT_VERSION: u64 = 1;
 
+    /// Identifier for cross-transfer messages.
     const CROSS_TRANSFER: vector<u8> = b"xCrossTransfer";
     
+    /// Identifier for cross-transfer revert messages.
     const CROSS_TRANSFER_REVERT: vector<u8> = b"xCrossTransferTevert";
 
+    /// A struct representing a witness registration.
     public struct REGISTER_WITNESS has drop, store {}
 
+    /// A struct for carrying a witness registration.
     public struct WitnessCarrier has key { id: UID, witness: REGISTER_WITNESS }
 
-    public struct AdminCap has key{
+    /// Admin capability required for performing sensitive operations.
+    public struct AdminCap has key, store {
         id: UID 
     }
 
+    /// Represents a locked balance of a specific token.
     public struct LockedBalance has key, store{
         id: UID,
         balance: Balance<TEST_COIN>,
     }
 
+    /// Configuration struct storing the state and settings of the module.
     public struct Config has key, store {
         id: UID,
+        // The identifier for the hub managing cross-chain transactions.
         icon_hub: String,
+        // Version of the configuration. 
         version: u64,
-        balance: LockedBalance,
+        // Locked balance associated with this configuration.
+        balance: LockedBalance, 
+        // Identifier capability for managing cross-chain calls.
         id_cap: IDCap,
-        xcall_id: ID,
+        // Cross-call ID used for tracking transactions.
+        xcall_id: ID, 
+        // Source chain identifiers.
         sources: vector<String>,
-        destinations: vector<String>,
+        // Destination chain identifiers.
+        destinations: vector<String>, 
     }
 
+    /// Initializes the module by creating and transferring 
+    /// an `AdminCap` and a `WitnessCarrier` to the sender.
     fun init(ctx: &mut TxContext){
         transfer::transfer(AdminCap{
             id: object::new(ctx),
@@ -75,9 +99,10 @@ module spoke_manager::spoke_manager{
         }, ctx.sender());
     }    
 
-    /// Protected function
-    /// Set sources  chain ids in config
-    /// Set destinations chain ids in config
+    /// Sets the source and destination chain IDs in the provided `Config`.
+    ///
+    /// Only callable by the holder of `AdminCap`.
+    /// T: Is this function really neeeded? why?
     public fun set_protocol(
         _: &mut AdminCap, 
         config: &mut Config, 
@@ -88,6 +113,14 @@ module spoke_manager::spoke_manager{
         vector::append(&mut config.destinations, destinations);
     }
 
+    /// Configures the cross-chain setup including registering the dApp and initializing balances.
+    ///
+    /// - `storage`: The storage object used for managing state.
+    /// - `witness_carrier`: The carrier object containing the witness.
+    /// - `version`: The version of the configuration being set.
+    /// - `icon_hub`: The identifier for the hub managing cross-chain transactions.
+    /// - `sources`: Source chain identifiers.
+    /// - `destinations`: Destination chain identifiers.
     entry fun configure(
         _: &AdminCap,
         storage: &Storage, 
@@ -120,6 +153,14 @@ module spoke_manager::spoke_manager{
         transfer::share_object(config);
     }
 
+    /// Handles a cross-chain transfer, locking the transferred amount and sending a wrapped message.
+    ///
+    /// - `config`: The configuration object containing the state.
+    /// - `x_ctx`: The storage object used for managing state.
+    /// - `fee`: The fee to be paid for the transfer.
+    /// - `token`: The token being transferred.
+    /// - `to`: The destination address.
+    /// - `data`: Optional data to be included with the transfer.
     public entry fun cross_transfer(
         config: &mut Config,
         x_ctx: &mut Storage,
@@ -155,7 +196,13 @@ module spoke_manager::spoke_manager{
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_hub, envelope::encode(&envelope), ctx);
     }
 
-
+    /// Executes a call message, verifying the protocols and releasing locked balances if valid.
+    ///
+    /// - `config`: The configuration object containing the state.
+    /// - `x_ctx`: The storage object used for managing state.
+    /// - `fee`: The fee to be paid for executing the call.
+    /// - `request_id`: The ID of the request being executed.
+    /// - `data`: The data associated with the call.
     public entry fun execute_call(
         config: &mut Config,
         x_ctx: &mut Storage,
@@ -192,6 +239,11 @@ module spoke_manager::spoke_manager{
         }
     }
 
+    /// Executes a rollback of a cross-chain transfer, releasing locked balances back to the sender.
+    ///
+    /// - `config`: The configuration object containing the state.
+    /// - `xcall`: The storage object used for managing state.
+    /// - `sn`: The sequence number of the rollback request.
     public entry fun execute_rollback(
         config: &mut Config, 
         xcall: &mut Storage, 
@@ -219,6 +271,9 @@ module spoke_manager::spoke_manager{
         xcall::execute_rollback_result(xcall,ticket,true)
     }
 
+    /// Forces a rollback execution without releasing locked balances. 
+    ///
+    /// Typically used in error recovery scenarios.
     public entry fun execute_force_rollback(
         config: &Config, 
         _: &AdminCap,  
@@ -233,37 +288,54 @@ module spoke_manager::spoke_manager{
         xcall::execute_call_result(xcall,ticket,false,fee,ctx);
     }
 
+    /// Migrates the configuration to a new version, applying any necessary updates.
+    ///
+    /// - `self`: The configuration object to be migrated.
+    /// - `UpgradeCap`: The upgrade capability required to perform this operation.
     entry fun migrate(self: &mut Config, _: &UpgradeCap){
         assert!(get_version(self) < CURRENT_VERSION, ENotUpgrade);
         set_version(self, CURRENT_VERSION);
     }
 
+
+
+    /// Updates the hub token used for cross-chain transactions.
+    ///
+    /// - `config`: The configuration object to be updated.
+    /// - `icon_token`: The new token identifier for the hub.
     entry fun set_token(_:&AdminCap, config: &mut Config, icon_token: String){
         validate_version(config);
         config.icon_hub = icon_token;
     }
 
     /// Getters
+    
+    /// Retrieves the ID capability from the configuration.
     public fun get_idcap(config: &Config): &IDCap{
         validate_version(config);
         &config.id_cap
     }
 
+    /// Retrieves the cross-call ID from the configuration. 
     public fun get_xcall_id(config: &Config): ID{
         validate_version(config);
         config.xcall_id
     }
 
+    /// Retrieves the version number from the configuration.
     public fun get_version(config: &Config): u64{
         config.version
     }
 
-    // Private actions
+    // === Private Helpers ===
+
+    /// Verifies that the provided protocols match the configuration's expected protocols.
     public fun verify_protocols(config: &Config, protocols: vector<String>): bool{
         validate_version(config);
         verify_protocols_unordered(config.sources, protocols)
     }
 
+    /// Helper function to verify protocols without considering order.
     fun verify_protocols_unordered(array1: vector<String>, array2: vector<String>): bool{
         let len  =  vector::length(&array1);
         if(len != vector::length(&array2)){
@@ -283,24 +355,31 @@ module spoke_manager::spoke_manager{
         }
     }
 
+    /// Retrieves a mutable reference to the locked balance within the configuration.
     fun get_locked_bal_mut(config: &mut Config): &mut LockedBalance{
         &mut config.balance
     }
+
+    /// Extracts the witness from the `WitnessCarrier` and deletes the carrier object.
     fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
         let WitnessCarrier { id, witness } = carrier;
         id.delete();
         witness
     }
 
+    /// Updates the configuration's version number.
     fun set_version(config: &mut Config, version: u64){
         config.version = version
     }
 
+
+    /// Translates an outgoing amount from u64 to u128.
     fun translate_outgoing_amount(amount: u64): u128 {
         let multiplier = math::pow(10, 9) as u128;
         (amount as u128) * multiplier 
     }
 
+    
     fun translate_incoming_amount(amount: u128): u64{
         (amount / (math::pow(10,9) as u128)) as u64
     }
