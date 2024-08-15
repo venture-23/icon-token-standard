@@ -5,10 +5,7 @@ import com.iconloop.score.test.Score;
 import com.iconloop.score.test.ServiceManager;
 import com.iconloop.score.test.TestBase;
 import foundation.icon.xcall.NetworkAddress;
-import icon.cross.chain.token.lib.interfaces.tokens.XCall;
-import icon.cross.chain.token.lib.interfaces.tokens.XCallScoreInterface;
-import icon.cross.chain.token.lib.interfaces.tokens.XTokenReceiver;
-import icon.cross.chain.token.lib.interfaces.tokens.XTokenReceiverScoreInterface;
+import icon.cross.chain.token.lib.interfaces.tokens.*;
 import icon.cross.chain.token.lib.mock.MockContract;
 import icon.cross.chain.token.lib.utils.HubTokenMessages;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +17,7 @@ import score.Address;
 import score.Context;
 
 import java.math.BigInteger;
+import java.util.Map;
 
 import static java.math.BigInteger.TEN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,22 +37,23 @@ class HubTokenTest extends TestBase {
 
     private static MockContract<XTokenReceiver> receiverContract;
     private static MockContract<XCall> xCall;
+    private static MockContract<XCallManager> xCallManager;
     private static HubTokenTester tokenSpy;
-    private static String ethNid = "1.ETH";
-    private static String bscNid = "1.BSC";
-    private static String ICON_NID = "1.ICON";
-    private static NetworkAddress ethereumSpokeAddress = new NetworkAddress(ethNid, "0x1");
-    private static NetworkAddress bscSpokeAddress = new NetworkAddress(bscNid, "0x2");
-    private static BigInteger baseLimit = totalSupply;
+    private static final String ethNid = "1.ETH";
+    private static final String bscNid = "1.BSC";
+    private static final String ICON_NID = "1.ICON";
+    private static final NetworkAddress ethereumSpokeAddress = new NetworkAddress(ethNid, "0x1");
+    private static final NetworkAddress bscSpokeAddress = new NetworkAddress(bscNid, "0x2");
+    private static final BigInteger baseLimit = totalSupply;
 
     String[] sources = new String[]{"a", "b"};
     String[] destinations = new String[]{"c", "d"};
 
 
     public static class HubTokenTester extends HubTokenImpl {
-        public HubTokenTester(Address _xCall, String _nid,
-                              String _tokenName, String _symbolName, BigInteger _decimals, BigInteger _initialSupply) {
-            super(_xCall, _nid, _tokenName, _symbolName, _decimals);
+        public HubTokenTester(Address _xCall, Address _xCallManager, String _nid,
+                              String _tokenName, String _symbolName, String _tokenNativeNid, BigInteger _decimals, BigInteger _initialSupply) {
+            super(_xCall, _xCallManager, _nid, _tokenName, _symbolName, _tokenNativeNid, _decimals);
 
             // mint the initial token supply here
             mint(new NetworkAddress(_nid, Context.getCaller()), _initialSupply);
@@ -64,17 +63,18 @@ class HubTokenTest extends TestBase {
     @BeforeEach
     public void setup() throws Exception {
         xCall = new MockContract<>(XCallScoreInterface.class, sm, owner);
+        xCallManager = new MockContract<>(XCallManagerScoreInterface.class, sm, owner);
         tokenScore = sm.deploy(owner, HubTokenTester.class,
-                xCall.getAddress(), ICON_NID, name, symbol, decimals, totalSupply);
+                xCall.getAddress(), xCallManager.getAddress(), ICON_NID, name, symbol, "01.ICON", decimals, totalSupply);
         tokenSpy = (HubTokenTester) spy(tokenScore.getInstance());
         tokenScore.setInstance(tokenSpy);
         receiverContract = new MockContract<>(XTokenReceiverScoreInterface.class, sm, owner);
+
+        when(xCallManager.mock.getProtocols(ethNid)).thenReturn(Map.of("sources", sources, "destinations", destinations));
+        when(xCallManager.mock.getProtocols(bscNid)).thenReturn(Map.of("sources", sources, "destinations", destinations));
+
         tokenScore.invoke(owner, "addChain", ethereumSpokeAddress.toString(), baseLimit);
         tokenScore.invoke(owner, "addChain", bscSpokeAddress.toString(), baseLimit);
-
-        tokenScore.invoke(owner, "configureProtocols", ethNid, sources, destinations);
-        tokenScore.invoke(owner, "configureProtocols", bscNid, sources, destinations);
-
     }
 
     @Test

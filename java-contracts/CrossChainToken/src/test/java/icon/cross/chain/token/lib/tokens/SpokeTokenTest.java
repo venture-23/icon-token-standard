@@ -5,10 +5,7 @@ import com.iconloop.score.test.Score;
 import com.iconloop.score.test.ServiceManager;
 import com.iconloop.score.test.TestBase;
 import foundation.icon.xcall.NetworkAddress;
-import icon.cross.chain.token.lib.interfaces.tokens.XCall;
-import icon.cross.chain.token.lib.interfaces.tokens.XCallScoreInterface;
-import icon.cross.chain.token.lib.interfaces.tokens.XTokenReceiver;
-import icon.cross.chain.token.lib.interfaces.tokens.XTokenReceiverScoreInterface;
+import icon.cross.chain.token.lib.interfaces.tokens.*;
 import icon.cross.chain.token.lib.mock.MockContract;
 import icon.cross.chain.token.lib.utils.SpokeTokenMessages;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,22 +36,21 @@ public class SpokeTokenTest extends TestBase {
 
     private static MockContract<XTokenReceiver> receiverContract;
     private static MockContract<XCall> xCall;
+    private static MockContract<XCallManager> xCallManager;
     private static SpokeTokenTester tokenSpy;
-    private static String ICON_NID = "01.ICON";
+    private static final String ICON_NID = "01.ICON";
 
-    String[] defaultDestinationsProtocols = new String[]{"c", "d"};
-    String[] sources = new String[]{"a", "b"};
-    String[] destinations = new String[]{"c", "d"};
+    String[] defaultDestinationsProtocols = new String[]{"a", "b"};
 
 
     public static class SpokeTokenTester extends SpokeTokenImpl {
-        public SpokeTokenTester(Address _xCall, String _nid,
-                                String _tokenName, String _symbolName, BigInteger _decimals, BigInteger _initialSupply) {
-            super(_xCall, _nid, _tokenName, _symbolName, _decimals);
+        public SpokeTokenTester(Address _xCall, Address _xCallManager, String _nid,
+                                String _tokenName, String _symbolName, String _tokenNativeNid, BigInteger _decimals, BigInteger _initialSupply) {
+            super(_xCall, _xCallManager, _nid, _tokenName, _symbolName, _tokenNativeNid, _decimals);
             // mint the initial token supply here
             mint(new NetworkAddress(_nid, Context.getCaller()), _initialSupply);
         }
-        private DictDB<Address, BigInteger> legacyAddressDB = Context.newDictDB(BALANCES, BigInteger.class);
+        private final DictDB<Address, BigInteger> legacyAddressDB = Context.newDictDB(BALANCES, BigInteger.class);
 
         @External
         public void addOldBalance(score.Address address, BigInteger balance) {
@@ -65,8 +61,9 @@ public class SpokeTokenTest extends TestBase {
     @BeforeEach
     public void setup() throws Exception {
         xCall = new MockContract<>(XCallScoreInterface.class, sm, owner);
+        xCallManager = new MockContract<>(XCallManagerScoreInterface.class, sm, owner);
         tokenScore = sm.deploy(owner, SpokeTokenTester.class,
-                xCall.getAddress(), ICON_NID, name, symbol, decimals, totalSupply);
+                xCall.getAddress(), xCallManager.getAddress(), ICON_NID, name, symbol, "01.ICON", decimals, totalSupply);
 
         tokenSpy = (SpokeTokenTester) spy(tokenScore.getInstance());
         tokenScore.setInstance(tokenSpy);
@@ -169,12 +166,10 @@ public class SpokeTokenTest extends TestBase {
         addBalance(alice, amount);
         NetworkAddress bobNetworkAddress = new NetworkAddress(ICON_NID, bob.getAddress());
 
-        tokenScore.invoke(owner, "configureProtocols", "01.eth", sources, destinations);
-
         // Act
         byte[] msg = SpokeTokenMessages.xHubTransfer(bobNetworkAddress.toString(), amount, new byte[0]);
 
-        tokenScore.invoke(xCall.account, "handleCallMessage", alice.toString(), msg, sources);
+        tokenScore.invoke(xCall.account, "handleCallMessage", alice.toString(), msg, defaultDestinationsProtocols);
 
         // Assert
         assertEquals(BigInteger.ZERO, balanceOf(alice));
@@ -191,11 +186,9 @@ public class SpokeTokenTest extends TestBase {
         NetworkAddress receiverContractNetworkAddress = new NetworkAddress(ICON_NID, receiverContract.getAddress().toString());
         addBalance(alice, amount);
 
-        tokenScore.invoke(owner, "configureProtocols", "01.eth", sources, destinations);
-
         // Act
         byte[] msg = SpokeTokenMessages.xHubTransfer(receiverContractNetworkAddress.toString(), amount, new byte[0]);
-        tokenScore.invoke(xCall.account, "handleCallMessage", alice.toString(), msg, sources);
+        tokenScore.invoke(xCall.account, "handleCallMessage", alice.toString(), msg, defaultDestinationsProtocols);
 
         // Assert
         assertEquals(BigInteger.ZERO, balanceOf(alice));

@@ -4,7 +4,6 @@ import foundation.icon.xcall.NetworkAddress;
 import icon.cross.chain.token.lib.interfaces.tokens.HubToken;
 import icon.cross.chain.token.lib.utils.HubTokenMessages;
 import icon.cross.chain.token.lib.utils.HubTokenXCall;
-import icon.cross.chain.token.lib.utils.XCallUtils;
 import score.*;
 import score.annotation.EventLog;
 import score.annotation.External;
@@ -21,8 +20,6 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     private final static String SPOKE_CONTRACTS = "spoke_contract";
     private final static String SPOKE_LIMITS = "spoke_limits";
 
-    static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
-
     protected final DictDB<String, BigInteger> crossChainSupply = Context.newDictDB(CROSS_CHAIN_SUPPLY, BigInteger.class);
     protected final ArrayDB<NetworkAddress> connectedChains = Context.newArrayDB(CONNECTED_CHAINS, NetworkAddress.class);
     // net -> address
@@ -30,8 +27,8 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
     // net -> int
     protected final DictDB<String, BigInteger> spokeLimits = Context.newDictDB(SPOKE_LIMITS, BigInteger.class);
 
-    public HubTokenImpl(Address _xCall, String _nid, String _tokenName, String _symbolName,  String _tokenNativeNid, @Optional BigInteger _decimals) {
-        super(_xCall, _nid, _tokenName, _symbolName, _tokenNativeNid, _decimals);
+    public HubTokenImpl(Address _xCall, Address _xCallManager, String _nid, String _tokenName, String _symbolName,  String _tokenNativeNid, @Optional BigInteger _decimals) {
+        super(_xCall, _xCallManager, _nid, _tokenName, _symbolName, _tokenNativeNid, _decimals);
     }
 
     @EventLog(indexed = 1)
@@ -188,7 +185,7 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
         byte[] rollback = HubTokenMessages.xCrossTransferRevert(to.toString(), value);
         byte[] callData = HubTokenMessages.xCrossTransfer(from.toString(), to.toString(), value, data);
 
-        XCallUtils.sendCall(fee, xCall.get(), spokeAddress, callData, rollback, protocols.get(spokeAddress.net()));
+        sendCall(fee, spokeAddress, callData, rollback);
 
         XTransfer(from.toString(), to.toString(), value, data);
     }
