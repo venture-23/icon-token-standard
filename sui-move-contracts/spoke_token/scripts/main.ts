@@ -6,9 +6,9 @@ dotenv.config();
 
 
 const STORAGE = process.env.X_STORAGE || "";
-const SOURCE = process.env.SOURCE || "";
 const MANAGER_CONFIG = process.env.MANAGER_CONFIG || "";
 const ICON_TOKEN = process.env.ICON_TOKEN || "";
+const TREASURY_CAP = process.env.TREASURY_CAP || "";
 
 async function main() {
     const result = await deploy();
@@ -22,7 +22,7 @@ async function main() {
         result?.WitnessManager, 
         1, 
         ICON_TOKEN,
-        result?.TreasuryCap
+        TREASURY_CAP
     )    
 }
 
