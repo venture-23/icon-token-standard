@@ -24,7 +24,7 @@ contract DeployCrossToken is Script {
         vm.stopBroadcast();
     }
 
-    function deployNewCrossTokenContract(string memory name, string memory symbol, address xCall, address iconTokenAddress, address xCallManager) public broadcast(deployerPrivateKey) {
+    function deploySpokeToken(string memory name, string memory symbol, address xCall, address iconTokenAddress, address xCallManager) public broadcast(deployerPrivateKey) {
         NewCrossToken crossToken = new NewCrossToken(); 
         NewCrossToken newCrossToken = NewCrossToken(
             address(
