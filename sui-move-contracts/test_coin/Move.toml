@@ -1,7 +1,7 @@
 [package]
 name = "test_coin"
 edition = "2024.beta"                                                               # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x3f99611cd1f095d4726236da7f005bf331aa2fb029065098e1defe3d93891640"
+published-at = "0x9ccf0dafa531132d03539b81d79843662deb830dbb26d659f7512d37807209dc"
 # license = ""           # e.g., "MIT", "GPL", "Apache 2.0"
 # authors = ["..."]      # e.g., ["Joe Smith (joesmith@noemail.com)", "John Snow (johnsnow@noemail.com)"]
 
@@ -20,7 +20,7 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-fram
 # Override = { local = "../conflicting/version", override = true }
 
 [addresses]
-test_coin = "0x3f99611cd1f095d4726236da7f005bf331aa2fb029065098e1defe3d93891640"
+test_coin = "0x9ccf0dafa531132d03539b81d79843662deb830dbb26d659f7512d37807209dc"
 
 # Named addresses will be accessible in Move as `@name`. They're also exported:
 # for example, `std = "0x1"` is exported by the Standard Library.

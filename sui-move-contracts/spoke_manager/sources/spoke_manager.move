@@ -1,7 +1,6 @@
 /// Module for managing cross-chain transfers, including locking balances, 
 /// handling configuration, and executing cross-chain transfers and rollbacks.
 module spoke_manager::spoke_manager{
-    use sui::math::{Self};
     use std::string::String;
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
@@ -334,13 +333,14 @@ module spoke_manager::spoke_manager{
 
     /// Translates an outgoing amount from u64 to u128.
     fun translate_outgoing_amount(amount: u64): u128 {
-        let multiplier = math::pow(10, 9) as u128;
+        // let multiplier = math::pow(10, 9) as u128;
+        let multiplier = std::u64::pow(10, 9) as u128;
         (amount as u128) * multiplier 
     }
 
     /// Translates an imcoming amount from u128 to u64.
     fun translate_incoming_amount(amount: u128): u64{
-        (amount / (math::pow(10,9) as u128)) as u64
+        (amount / (std::u64::pow(10,9) as u128)) as u64
     }
 
     /// Validate tge versioning of Config

@@ -1,6 +1,5 @@
 /// Module: spoke_token
 module spoke_token::spoke_token {
-    use sui::math::{Self};
     use std::string::String;
     use sui::coin::{Self, Coin, TreasuryCap};
     use sui::package::UpgradeCap;
@@ -236,12 +235,12 @@ module spoke_token::spoke_token {
     }
 
     fun translate_outgoing_amount(amount: u64): u128 {
-        let multiplier = math::pow(10, 9) as u128;
+        let multiplier = std::u64::pow(10, 9) as u128;
         (amount as u128) * multiplier 
     }
 
     fun translate_incoming_amount(amount: u128): u64{
-        (amount / (math::pow(10,9) as u128)) as u64
+        (amount / (std::u64::pow(10,9) as u128)) as u64
     }
 
     fun validate_version(self: &Config){
