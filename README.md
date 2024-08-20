@@ -214,12 +214,12 @@ Then, run the following command to deploy a cross chain token based on the token
 
 Deploy Spoke Token
 ```shell
-forge script scripts/DeployCrossToken.s.sol:DeployCrossToken  -s "deploySpokeToken(string memory name, string memory symbol, address xCall, address iconTokenAddress, address xCallManager) " <name> <symbol> <xCall> <iconToken> <xCallManager> --fork-url <rpc_url> --broadcast --sender DEPLOYER_WALLET_ADDRESS --verify src/implementation/NewCrossToken.sol --etherscan-api-key  <api-key> --ffi
+forge script scripts/DeployCrossToken.s.sol:DeployCrossToken  -s "deploySpokeToken(string memory name, string memory symbol, address xCall, string memory iconTokenAddress, address xCallManager) " <name> <symbol> <xCall> <iconToken> <xCallManager> --fork-url <rpc_url> --broadcast --sender DEPLOYER_WALLET_ADDRESS --verify src/implementation/NewCrossToken.sol --etherscan-api-key  <api-key> --ffi
 ```
 
 Deploy Spoke Manager
 ```shell
-forge script scripts/DeployCrossToken.s.sol:DeployCrossToken  -s "deploySpokeTokenManager(address token, address xCall, address iconTokenAddress, address xCallManager)" <token> <xCall> <iconToken> <xCallManager> --fork-url <rpc_url> --broadcast --sender DEPLOYER_WALLET_ADDRESS --verify src/tokens/SpokeTokenManager.sol --etherscan-api-key  <api-key> --ffi
+forge script scripts/DeployCrossToken.s.sol:DeployCrossToken  -s "deploySpokeTokenManager(address token, address xCall, string memory iconTokenAddress, address xCallManager)" <token> <xCall> <iconToken> <xCallManager> --fork-url <rpc_url> --broadcast --sender DEPLOYER_WALLET_ADDRESS --verify src/tokens/SpokeTokenManager.sol --etherscan-api-key  <api-key> --ffi
 ```
 
 This will deploy a new cross chain token on EVM.
