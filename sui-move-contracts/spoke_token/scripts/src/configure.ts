@@ -10,12 +10,11 @@ function sleep(ms: number): Promise<void> {
 export async function configureSpokeToken(
     packageId: string,
     admin: string, 
-    storage: string, 
+    storage: string,
+    manager_config: string,
     witness_object: string,
     version: number,
     icon_token: string,
-    sources: Array<string>,
-    destination: Array<string>,
     treasuryCap: string
 ) {
     const tx = new TransactionBlock();
@@ -29,8 +28,7 @@ export async function configureSpokeToken(
             tx.object(witness_object),
             tx.pure.u64(version),
             tx.pure.string(icon_token),
-            tx.pure(sources),
-            tx.pure(destination),
+            tx.object(manager_config),
             tx.object(treasuryCap),
         ]
     });

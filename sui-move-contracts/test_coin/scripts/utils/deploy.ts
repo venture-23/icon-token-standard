@@ -61,25 +61,19 @@ export async function deploy() {
 
         let output: any;
         output = result.objectChanges;
-        let  WitnessManager: any, AdminCap: any;
+        let  TreasuryCap: any;
         for (let i = 0; i < output.length; i++) {
             const item = output[i];
             if (item.type === 'created') {
-                if (item.objectType == `${packageId}::spoke_token::WitnessCarrier`) {
-                    WitnessManager = String(item.objectId);
+                if (item.objectType == `0x2::coin::TreasuryCap<${packageId}::test_coin::TEST_COIN>`) {
+                    TreasuryCap = String(item.objectId);
                 }
             }
 
-
-            if (item.type === 'created') {
-                if (item.objectType == `${packageId}::spoke_token::AdminCap`) {
-                    AdminCap = String(item.objectId);
-                }
-            }
         }
-        return { packageId,  WitnessManager, AdminCap};
+        return { packageId,  TreasuryCap};
     } catch (error) {
         console.error(error);
-        return { packageId: '', WitnessManager:'', AdminCap:''};
+        return { packageId: '',  TreasuryCap: ''};
     }
 }

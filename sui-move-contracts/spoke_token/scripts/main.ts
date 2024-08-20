@@ -6,9 +6,9 @@ dotenv.config();
 
 
 const STORAGE = process.env.X_STORAGE || "";
-const SOURCE = process.env.SOURCE || "";
-const DESTINATION = process.env.DESTINATION || "";
+const MANAGER_CONFIG = process.env.MANAGER_CONFIG || "";
 const ICON_TOKEN = process.env.ICON_TOKEN || "";
+const TREASURY_CAP = process.env.TREASURY_CAP || "";
 
 async function main() {
     const result = await deploy();
@@ -18,12 +18,11 @@ async function main() {
         result?.packageId, 
         result?.AdminCap, 
         STORAGE, 
+        MANAGER_CONFIG,
         result?.WitnessManager, 
         1, 
         ICON_TOKEN,
-        [SOURCE],
-        [DESTINATION],
-        result?.TreasuryCap
+        TREASURY_CAP
     )    
 }
 

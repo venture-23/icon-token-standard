@@ -2,11 +2,12 @@
 
 [move]
 version = 2
-manifest_digest = "86D1E75DB1AED6DF81FA3C7F4E59500DC12FBB981012FF4E6E3008405C8F8870"
-deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
+manifest_digest = "EE1C1FDB3E75A9D13B01CC2832E61EB68EFC20E2CA4189B591DA832EC4C85E6C"
+deps_digest = "060AD7E57DFB13104F21BE5F5C3759D03F0553FC3229247D9A7A6B45F50D03A3"
 dependencies = [
   { name = "Sui" },
-  { name = "xcall" },
+  { name = "balanced" },
+  { name = "test_coin" },
 ]
 
 [[move.package]]
@@ -22,8 +23,34 @@ dependencies = [
 ]
 
 [[move.package]]
+name = "balanced"
+source = { git = "https://github.com/balancednetwork/balanced-move-contracts.git", rev = "sui-balanced-testnet", subdir = "" }
+
+dependencies = [
+  { name = "Sui" },
+  { name = "balanced_dollar" },
+  { name = "xcall" },
+]
+
+[[move.package]]
+name = "balanced_dollar"
+source = { git = "https://github.com/balancednetwork/balanced-move-contracts.git", rev = "sui-balanced-testnet", subdir = "balanced_dollar" }
+
+dependencies = [
+  { name = "Sui" },
+]
+
+[[move.package]]
 name = "sui_rlp"
-source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-testnet", subdir = "contracts/sui/libs/sui_rlp" }
+source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "sui-xcall-testnet-deploy", subdir = "contracts/sui/libs/sui_rlp" }
+
+dependencies = [
+  { name = "Sui" },
+]
+
+[[move.package]]
+name = "test_coin"
+source = { local = "../test_coin" }
 
 dependencies = [
   { name = "Sui" },
@@ -31,7 +58,7 @@ dependencies = [
 
 [[move.package]]
 name = "xcall"
-source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "feat/sui-xcall-testnet", subdir = "contracts/sui/xcall" }
+source = { git = "https://github.com/icon-project/xcall-multi.git", rev = "sui-xcall-testnet-deploy", subdir = "contracts/sui/xcall" }
 
 dependencies = [
   { name = "Sui" },

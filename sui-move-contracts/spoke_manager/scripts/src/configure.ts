@@ -10,25 +10,22 @@ export async function configureSpokeManager(
     packageId: string,
     admin: string, 
     storage: string, 
+    managerConfig: string,
     witness_object: string,
     version: number,
     icon_token: string,
-    sources: Array<string>,
-    destination: Array<string>,
 ) {
     const tx = new TransactionBlock();
-    const { keypair, client, address } = await deploymentConfig();
-
+    const { keypair, client, address } = await deploymentConfig(); 
     tx.moveCall({
         target: `${packageId}::spoke_manager::configure`,
         arguments: [
             tx.object(admin),
             tx.object(storage),
+            tx.object(managerConfig),
             tx.object(witness_object),
             tx.pure.u64(version),
             tx.pure.string(icon_token),
-            tx.pure(sources),
-            tx.pure(destination),
         ]
     });
    
