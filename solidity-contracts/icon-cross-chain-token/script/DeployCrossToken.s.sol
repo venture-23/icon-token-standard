@@ -24,7 +24,7 @@ contract DeployCrossToken is Script {
         vm.stopBroadcast();
     }
 
-    function deploySpokeToken(string memory name, string memory symbol, address xCall, address iconTokenAddress, address xCallManager) public broadcast(deployerPrivateKey) {
+    function deploySpokeToken(string memory name, string memory symbol, address xCall, string memory iconTokenAddress, address xCallManager) public broadcast(deployerPrivateKey) {
         NewCrossToken crossToken = new NewCrossToken(); 
         NewCrossToken newCrossToken = NewCrossToken(
             address(
@@ -44,7 +44,7 @@ contract DeployCrossToken is Script {
         console2.log(address(newCrossToken));
     }
 
-    function deploySpokeTokenManager(address token, address xCall, address iconTokenAddress, address xCallManager) public broadcast(deployerPrivateKey) {
+    function deploySpokeTokenManager(address token, address xCall, string memory iconTokenAddress, address xCallManager) public broadcast(deployerPrivateKey) {
         spokeTokenManager = new SpokeTokenManager();
         spokeTokenManagerAddress = address(spokeTokenManager);
         spokeTokenManager = SpokeTokenManager(
