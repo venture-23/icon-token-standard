@@ -7,14 +7,14 @@ module spoke_manager::spoke_manager{
     use sui::package::UpgradeCap;
     use sui::sui::SUI;
     
-    use balanced::balanced_utils::{address_to_hex_string, address_from_hex_string};
+    use balanced::balanced_utils::{address_to_hex_string, address_from_hex_string, create_execute_params, ExecuteParams};
     use balanced::cross_transfer::{Self, wrap_cross_transfer, XCrossTransfer};
     use balanced::cross_transfer_revert::{Self, XCrossTransferRevert};
     use balanced::xcall_manager::{Self, Config as XcallManagerConfig};
 
     use test_coin::test_coin::{TEST_COIN};
     
-    use xcall::{main as xcall};
+    use xcall::{main as xcall, xcall_utils};
     use xcall::execute_ticket::{Self};
     use xcall::envelope::{Self};
     use xcall::rollback_ticket::{Self};
@@ -292,6 +292,30 @@ module spoke_manager::spoke_manager{
         config.icon_hub = icon_token;
     }
 
+    entry fun get_execute_params(config: &Config, _msg:vector<u8>): ExecuteParams{
+        let type_args:vector<String> = vector::empty();
+
+        let mut result:vector<String> = vector::empty();
+        result.push_back(xcall_utils::id_to_hex_string(&get_config_id(config)));
+        result.push_back(xcall_utils::id_to_hex_string(&get_xcall_manager_id(config)));
+        result.push_back(xcall_utils::id_to_hex_string(&get_xcall_id(config)));
+        result.push_back(b"coin".to_string());  
+        result.push_back(b"request_id".to_string());
+        result.push_back(b"data".to_string());        
+        create_execute_params(type_args, result)
+    }
+
+    entry fun get_rollback_params(config: &Config, _msg:vector<u8>): ExecuteParams{
+        let type_args:vector<String> = vector::empty();
+
+        let mut result:vector<String> = vector::empty();
+        result.push_back(xcall_utils::id_to_hex_string(&get_config_id(config)));
+        result.push_back(xcall_utils::id_to_hex_string(&get_xcall_id(config)));
+        result.push_back(b"sn".to_string());        
+        create_execute_params(type_args, result)
+    }
+
+
     /// Getters
     
     /// Retrieves the ID capability from the configuration.
@@ -309,6 +333,15 @@ module spoke_manager::spoke_manager{
     /// Retrieves the version number from the configuration.
     public fun get_version(config: &Config): u64{
         config.version
+    }
+
+    public fun get_xcall_manager_id(config: &Config): ID{
+        config.xcall_manager_id
+    }
+
+    public fun get_config_id(config: &Config): ID{
+        validate_version(config);
+        config.id.to_inner()
     }
 
 
