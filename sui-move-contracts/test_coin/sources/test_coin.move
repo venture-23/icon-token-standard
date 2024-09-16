@@ -1,10 +1,13 @@
-/// This module implements a simple coin (token) system called `TEST_COIN`. 
-/// The module allows for the creation, minting, burning, and management of this coin, 
-/// as well as the ability to freeze its metadata and transfer the treasury cap for future minting. 
-/// The manager will handle the token and use the treasury cap for cross-transfers between systems.
+/// This module implements a simple coin (token) system called `TEST_COIN`. For implementation as spoke token
+/// and spoke manager there are two implementation case.
 /// 
-/// - Allows the Spoke Manager or other authorized entities to mint new TEST_COIN tokens.
-/// - The minted tokens are directly transferred to the specified recipient.
+/// Case 1: Deploying a Token as a Spoke Token
+///     - Transfer the treasury cap directly to the Spoke token contract. The Spoke token takes over ownership and 
+///       handles the burn-and-mint mechanism seamlessly, ensuring smooth cross-chain functionality.
+///
+/// Case 2: Deploying a Token as a Spoke Manager
+///     - No need to transfer the treasury cap. The manager contract locks the tokens during cross-chain transfers and 
+///       automatically releases them when transferring back from the foreign chain to the home chain.
 module test_coin::test_coin {
     use sui::coin::{Self, Coin, TreasuryCap};
     use sui::url;
