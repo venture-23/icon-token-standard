@@ -72,8 +72,14 @@ public class HubTokenImpl extends SpokeTokenImpl implements HubToken {
         int numberOfChains = connectedChains.size();
         for (int i = 0; i < numberOfChains; i++) {
             NetworkAddress spokeAddress = connectedChains.get(i);
-            BigInteger supplyAt = crossChainSupply.getOrDefault(spokeAddress.net(), BigInteger.ZERO);
-            supply = supply.add(supplyAt);
+            // This condition is added to skip the double supply count of the foreign chain tokens on HubToken.
+            // If a native SUI or EVM token is transferred to ICON, the token is minted on ICON which increases the
+            // totalSupply and also updates the supplyAt value of SUI chain network.
+            // Fur further understanding see code logic in fn "_transferToICON" and line 166.
+            if (!spokeAddress.net().equals(tokenNativeNid())) {
+                BigInteger supplyAt = crossChainSupply.getOrDefault(spokeAddress.net(), BigInteger.ZERO);
+                supply = supply.add(supplyAt);
+            }
         }
 
         return supply;
