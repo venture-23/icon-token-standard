@@ -65,7 +65,7 @@ class HubTokenTest extends TestBase {
         xCall = new MockContract<>(XCallScoreInterface.class, sm, owner);
         xCallManager = new MockContract<>(XCallManagerScoreInterface.class, sm, owner);
         tokenScore = sm.deploy(owner, HubTokenTester.class,
-                xCall.getAddress(), xCallManager.getAddress(), ICON_NID, name, symbol, "01.ICON", decimals, totalSupply);
+                xCall.getAddress(), xCallManager.getAddress(), ICON_NID, name, symbol, "1.ICON", decimals, totalSupply);
         tokenSpy = (HubTokenTester) spy(tokenScore.getInstance());
         tokenScore.setInstance(tokenSpy);
         receiverContract = new MockContract<>(XTokenReceiverScoreInterface.class, sm, owner);
