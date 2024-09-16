@@ -1,8 +1,20 @@
-/// Module: test_coin
+/// This module implements a simple coin (token) system called `TEST_COIN`. For implementation as spoke token
+/// and spoke manager there are two implementation case.
+/// 
+/// Case 1: Deploying a Token as a Spoke Token
+///     - Transfer the treasury cap directly to the Spoke token contract. The Spoke token takes over ownership and 
+///       handles the burn-and-mint mechanism seamlessly, ensuring smooth cross-chain functionality.
+///
+/// Case 2: Deploying a Token as a Spoke Manager
+///     - No need to transfer the treasury cap. The manager contract locks the tokens during cross-chain transfers and 
+///       automatically releases them when transferring back from the foreign chain to the home chain.
 module test_coin::test_coin {
     use sui::coin::{Self, Coin, TreasuryCap};
     use sui::url;
-
+    
+    ///  Struct representing the TEST_COIN token.
+    /// `TEST_COIN` will be used as a base structure to define the coin and its operations.
+    ///  NOTE: Developer are requested to update the name of the struct as per your token name
     public struct TEST_COIN has drop {}
 
     fun init(witness: TEST_COIN, ctx:&mut TxContext){

@@ -318,12 +318,6 @@ module spoke_manager::spoke_manager{
 
     /// Getters
     
-    /// Retrieves the ID capability from the configuration.
-    public fun get_idcap(config: &Config): &IDCap{
-        validate_version(config);
-        &config.id_cap
-    }
-
     /// Retrieves the cross-call ID from the configuration. 
     public fun get_xcall_id(config: &Config): ID{
         validate_version(config);
@@ -346,6 +340,12 @@ module spoke_manager::spoke_manager{
 
 
     // ==== Private ====
+
+    /// Private method to retrieve the ID capability from the configuration.
+    fun get_idcap(config: &Config): &IDCap{
+        validate_version(config);
+        &config.id_cap
+    }
 
     /// Retrieves a mutable reference to the locked balance within the configuration.
     fun get_locked_bal_mut(config: &mut Config): &mut LockedBalance{
