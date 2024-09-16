@@ -1,4 +1,5 @@
-/// Module: spoke_token
+/// Module for managing cross-chain transfers, including locking balances, 
+/// handling configuration, and executing cross-chain transfers and rollbacks.
 module spoke_token::spoke_token {
     use std::string::String;
     use sui::coin::{Self, Coin, TreasuryCap};
@@ -18,53 +19,84 @@ module spoke_token::spoke_token {
     use xcall::network_address::{Self};
     use xcall::xcall_state::{Self, Storage, IDCap};
 
-
     // === Errors ===
 
+    /// Error: The amount specified is less than zero.
     const EAmountLessThanZero: u64 = 1;
 
+    /// Error: The configuration version is incorrect.
     const EWrongVersion: u64 = 2;
 
+    /// Error: The current configuration is not eligible for an upgrade.
     const ENotUpgrade: u64 = 3;
 
+    /// Error: The message type is unknown or unrecognized.
     const UnknownMessageType: u64 = 4;
 
-    /// Constants
+    // === Constants ===
+    
+    /// The current version of the configuration.
     const CURRENT_VERSION: u64 = 1;
 
+    /// Identifier for cross-transfer messages.
     const CROSS_TRANSFER: vector<u8> = b"xCrossTransfer";
     
+    /// Identifier for cross-transfer revert messages.
     const CROSS_TRANSFER_REVERT: vector<u8> = b"xCrossTransferTevert";
 
+    /// A struct representing a witness registration.
     public struct REGISTER_WITNESS has drop, store {}
 
+    /// A struct for carrying a witness registration.
     public struct WitnessCarrier has key { id: UID, witness: REGISTER_WITNESS }
 
+    /// Admin capability required for performing sensitive operations.
     public struct AdminCap has key{
         id: UID 
     }
 
+    /// A struct that represents the configuration of the cross-chain system
     public struct Config has key, store {
+        /// Unique identifier for the Config object
         id: UID,
+        /// Version number for upgrade validation
         version: u64,
+        /// Token representing the icon for cross-chain calls
         icon_token: String,
+        /// Capability for interacting with the ID system (xcall)
         id_cap: IDCap,
+        /// Identifier for the cross-chain call system
         xcall_manager_id: ID, 
+        /// Identifier for the cross-chain call itself
         xcall_id: ID,
+        /// Capability to manage treasury for the specific token (TEST_COIN)
         treasury_cap: TreasuryCap<TEST_COIN>,
     }
 
-    fun init(ctx: &mut TxContext){
+
+    /// Initializes the cross-chain admin and witness carrier with default values
+    fun init(ctx: &mut TxContext) {
+        // Transfer the AdminCap object to the sender
         transfer::transfer(AdminCap{
             id: object::new(ctx),
         }, ctx.sender());
 
+        // Transfer the WitnessCarrier with a default witness to the sender
         transfer::transfer(WitnessCarrier{
             id: object::new(ctx), 
             witness: REGISTER_WITNESS{},
         }, ctx.sender());
-    }    
+    }   
 
+    /// Configures the cross-chain system by setting key parameters like version, witness, etc.
+    /// 
+    /// -`AdminCap`: Admin capability to authorize configuration
+    /// -`storage`: Storage reference for registering the dApp
+    /// -`witness_carrier`: Witness carrier object to get witness
+    /// -`version`: Version number of the configuration
+    /// -`icon_token`: Icon token representing cross-chain configuration
+    /// -`xcall_manager_config`: Manager configuration for cross-chain call
+    /// -`treasury_cap`: Treasury capability for the token
     entry fun configure(
         _: &AdminCap,
         storage: &Storage, 
@@ -91,6 +123,15 @@ module spoke_token::spoke_token {
         });
     }
 
+    /// Handles a cross-chain transfer, locking the transferred amount and sending a wrapped message.
+    ///
+    /// - `config`: The configuration object containing the state.
+    /// - `xcall_manager_config`: The configuration object containing the state of xcall manager.
+    /// - `x_ctx`: The storage object used for managing state.
+    /// - `fee`: The fee to be paid for the transfer.
+    /// - `token`: The token being transferred.
+    /// - `to`: The destination address.
+    /// - `data`: Optional data to be included with the transfer 
     entry fun cross_transfer(
         config: &mut Config,
         x_ctx: &mut Storage,
@@ -104,6 +145,7 @@ module spoke_token::spoke_token {
         validate_version(config);
         let message_data = option::get_with_default(&data, b"");
         let amount = coin::value(&token);
+        // Ensures that the provided `amount` is greater than zero before proceeding.
         assert!(amount > 0, EAmountLessThanZero);
         coin::burn(get_treasury_cap_mut(config), token);
 
@@ -125,7 +167,14 @@ module spoke_token::spoke_token {
         xcall::send_call(x_ctx, fee, get_idcap(config), config.icon_token, envelope::encode(&envelope), ctx);
     }
 
-
+    /// Executes a call message, verifying the protocols and releasing locked balances if valid.
+    ///
+    /// - `config`: The configuration object containing the state.
+    /// - `xcall_manager_config`: The configuration object containing the state of xcall manager.
+    /// - `x_ctx`: The storage object used for managing state.
+    /// - `fee`: The fee to be paid for executing the call.
+    /// - `request_id`: The ID of the request being executed.
+    /// - `data`: The data associated with the call.
     entry fun execute_call(
         config: &mut Config,
         xcall_manager_config: &XcallManagerConfig,
@@ -157,6 +206,11 @@ module spoke_token::spoke_token {
         }
     }
 
+    /// Executes a rollback of a cross-chain transfer, releasing locked balances back to the sender.
+    ///
+    /// - `config`: The configuration object containing the state.
+    /// - `xcall`: The storage object used for managing state.
+    /// - `sn`: The sequence number of the rollback request.
     entry fun execute_rollback(
         config: &mut Config, 
         xcall: &mut Storage,
@@ -167,10 +221,9 @@ module spoke_token::spoke_token {
         let ticket = xcall::execute_rollback(xcall, get_idcap(config), sn, ctx);
         let msg = rollback_ticket::rollback(&ticket);
         let method: vector<u8> = cross_transfer::get_method(&msg);
-        assert!(
-            method == CROSS_TRANSFER_REVERT,
-            UnknownMessageType
-        );
+        
+        // Ensures that the provided `method` is the expected cross-transfer revert method.
+        assert!(method == CROSS_TRANSFER_REVERT, UnknownMessageType);
 
         let message: XCrossTransferRevert = cross_transfer_revert::decode(&msg);
         let to = cross_transfer_revert::to(&message);
@@ -180,6 +233,9 @@ module spoke_token::spoke_token {
         xcall::execute_rollback_result(xcall,ticket,true)
     }
 
+    /// Forces a rollback execution without releasing locked balances. 
+    ///
+    /// Typically used in error recovery scenarios.
     public entry fun execute_force_rollback(
         config: &Config, 
         _: &AdminCap,  
@@ -194,11 +250,20 @@ module spoke_token::spoke_token {
         xcall::execute_call_result(xcall,ticket,false,fee,ctx);
     }
 
+    /// Migrates the configuration to a new version, applying any necessary updates.
+    ///
+    /// - `self`: The configuration object to be migrated.
+    /// - `UpgradeCap`: The upgrade capability required to perform this operation.
     entry fun migrate(self: &mut Config, _: &UpgradeCap){
+        // Ensures that the version of the current object is lower than the `CURRENT_VERSION`
         assert!(get_version(self) < CURRENT_VERSION, ENotUpgrade);
         set_version(self, CURRENT_VERSION);
     }
 
+    /// Updates the hub token used for cross-chain transactions.
+    ///
+    /// - `config`: The configuration object to be updated.
+    /// - `icon_token`: The new token identifier for the hub.
     entry fun set_token(_:&AdminCap, config: &mut Config, icon_token: String){
         validate_version(config);
         config.icon_token = icon_token;
@@ -228,63 +293,93 @@ module spoke_token::spoke_token {
     }
 
     /// Getters
-    public fun get_idcap(config: &Config): &IDCap{
-        validate_version(config);
-        &config.id_cap
-    }
 
+    /// Retrieves the cross-call ID from the configuration. 
     public fun get_xcall_id(config: &Config): ID{
         validate_version(config);
         config.xcall_id
     }
 
+    /// Retrieves the version number from the configuration.
     public fun get_version(config: &Config): u64{
         config.version
     }
 
-    public fun get_xcall_manager_id(config: &Config): ID{
+    /// Returns the ID of the `xcall_manager` from the given configuration.
+    ///
+    /// # Arguments:
+    /// - `config`: A reference to the `Config` struct, which holds various system configurations.
+    ///
+    /// # Returns:
+    /// - The `ID` of the `xcall_manager` stored in the provided `Config`.
+    public fun get_xcall_manager_id(config: &Config): ID {
         config.xcall_manager_id
     }
 
-    public fun get_config_id(config: &Config): ID{
+    /// Returns the ID of the given configuration, after validating its version.
+    ///
+    /// # Arguments:
+    /// - `config`: A reference to the `Config` struct that contains the ID and version information.
+    ///
+    /// # Returns:
+    /// - The `ID` of the provided `Config` after validating its version.
+    ///
+    /// # Note:
+    /// - The function calls `validate_version` to ensure that the configuration is valid before returning the ID.
+    public fun get_config_id(config: &Config): ID {
         validate_version(config);
         config.id.to_inner()
     }
 
 
+    // ==== Private ====
+
+    /// Private method to retrieve the ID capability from the configuration.
+    fun get_idcap(config: &Config): &IDCap{
+        validate_version(config);
+        &config.id_cap
+    }
+
+    /// Retrieves a mutable reference to the locked balance within the configuration.
     fun get_treasury_cap_mut(config: &mut Config): &mut TreasuryCap<TEST_COIN>{
         &mut config.treasury_cap
     }
 
-
+    /// Extracts the witness from the `WitnessCarrier` and deletes the carrier object.
     fun get_witness(carrier: WitnessCarrier): REGISTER_WITNESS {
         let WitnessCarrier { id, witness } = carrier;
         id.delete();
         witness
-    }
+    }  
 
+    /// Updates the configuration's version number.
     fun set_version(config: &mut Config, version: u64){
         config.version = version
     }
-
+    
+    /// Translates an outgoing amount from u64 to u128.
     fun translate_outgoing_amount(amount: u64): u128 {
         let multiplier = std::u64::pow(10, 9) as u128;
         (amount as u128) * multiplier 
     }
 
+    /// Translates an imcoming amount from u128 to u64.
     fun translate_incoming_amount(amount: u128): u64{
         (amount / (std::u64::pow(10,9) as u128)) as u64
     }
 
+    /// Validate tge versioning of Config
     fun validate_version(self: &Config){
         assert!(self.version == CURRENT_VERSION, EWrongVersion);
     }
 
+    /// Validate tge versioning of Config
     #[test_only]
     public fun get_treasury_cap_for_testing(config: &mut Config): &mut TreasuryCap<TEST_COIN>{
         &mut config.treasury_cap
     }
 
+    /// Initialize for test scenario
     #[test_only]
     public fun init_test(ctx: &mut TxContext) {
         init(ctx)

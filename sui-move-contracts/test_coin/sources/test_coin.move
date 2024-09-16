@@ -1,8 +1,17 @@
-/// Module: test_coin
+/// This module implements a simple coin (token) system called `TEST_COIN`. 
+/// The module allows for the creation, minting, burning, and management of this coin, 
+/// as well as the ability to freeze its metadata and transfer the treasury cap for future minting. 
+/// The manager will handle the token and use the treasury cap for cross-transfers between systems.
+/// 
+/// - Allows the Spoke Manager or other authorized entities to mint new TEST_COIN tokens.
+/// - The minted tokens are directly transferred to the specified recipient.
 module test_coin::test_coin {
     use sui::coin::{Self, Coin, TreasuryCap};
     use sui::url;
-
+    
+    ///  Struct representing the TEST_COIN token.
+    /// `TEST_COIN` will be used as a base structure to define the coin and its operations.
+    ///  NOTE: Developer are requested to update the name of the struct as per your token name
     public struct TEST_COIN has drop {}
 
     fun init(witness: TEST_COIN, ctx:&mut TxContext){
