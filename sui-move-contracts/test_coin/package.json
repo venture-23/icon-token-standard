@@ -1,0 +1,12 @@
+{
+  "name": "cross-chain-token",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Amit Khatri",
+  "license": "MIT",
+  "dependencies": {
+    "@mysten/sui.js": "^0.54.1",
+    "@types/node": "^20.12.12",
+    "dotenv": "^16.4.5"
+  }
+}
